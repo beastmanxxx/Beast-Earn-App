@@ -735,8 +735,8 @@
         };
 
 
-        const ColorPredictionGame = ({ balance, setBalance, navigateTo, gameHistory, setGameHistory, addDepositToHistory, addWithdrawToHistory }) => {
-            const [currentPeriod, setCurrentPeriod] = React.useState('20250524100061693');
+        const ColorPredictionGame = ({ balance, setBalance, navigateTo, gameHistory, setGameHistory, addDepositToHistory, addWithdrawToHistory, currentUser, updateUserData }) => {
+            const [currentPeriod, setCurrentPeriod] = React.useState(1); // Default to 1
             const [timeLeft, setTimeLeft] = React.useState(0);
             const [gameState, setGameState] = React.useState('betting');
             const [selectedColor, setSelectedColor] = React.useState(null);
@@ -750,6 +750,17 @@
             const colors = ['Green', 'Violet', 'Red'];
             const numbers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
             const betSizes = ['Big', 'Small'];
+
+            // Fetch the user's last period from Firestore on component mount
+            React.useEffect(() => {
+                if (currentUser) {
+                    db.collection('users').doc(currentUser.uid).get().then((doc) => {
+                        if (doc.exists && doc.data().lastPeriod) {
+                            setCurrentPeriod(doc.data().lastPeriod + 1);
+                        }
+                    });
+                }
+            }, [currentUser]);
 
             React.useEffect(() => {
                 let interval;
@@ -801,8 +812,13 @@
                     setCurrentResult(null);
                     setSelectedColor(null);
                     setGameState('betting');
-                    setCurrentPeriod(prev => (parseInt(prev) + 1).toString());
+                    setCurrentPeriod(prev => prev + 1); // Increment period by 1
                     setCustomBetAmount(''); // Clear custom bet input
+
+                    // Update the user's lastPeriod in Firestore
+                    if (currentUser) {
+                        updateUserData({ lastPeriod: currentPeriod });
+                    }
                 }, 3000);
             };
 
@@ -879,7 +895,7 @@
                 setBetAmount(finalBetAmount); // Ensure betAmount state reflects the actual bet
                 setSelectedColor(selection);
                 setGameState('running');
-                setTimeLeft(30);
+                setTimeLeft(12);
             };
 
             const formatTime = (seconds) => {
@@ -1052,7 +1068,6 @@
                         </div>
                     </div>
 
-
                     {/* Size Betting */}
                     <div className="px-4 mb-4">
                         <div className="flex gap-2">
@@ -1108,7 +1123,6 @@
                         </button>
                     </div>
 
-
                     {/* Victory/Loss Message */}
                     {victoryMessage && (
                         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
@@ -1140,318 +1154,6 @@
                             </div>
                         </div>
                     )}
-                </div>
-            );
-        };
-
-        // --- Aviator Game Component (Implemented as a client-side simulation) ---
-        const AviatorGame = ({ balance, setBalance, navigateTo, addDepositToHistory, addWithdrawToHistory }) => {
-            const [betAmount, setBetAmount] = React.useState(10);
-            const [customBetAmount, setCustomBetAmount] = React.useState('');
-            const [isFlying, setIsFlying] = React.useState(false);
-            const [isBettingPhase, setIsBettingPhase] = React.useState(true); // New state for 10-sec betting phase
-            const [bettingTimer, setBettingTimer] = React.useState(10); // 10 seconds for betting phase
-            const [multiplier, setMultiplier] = React.useState(1.00);
-            const [betPlaced, setBetPlaced] = React.useState(false); // True if a bet was successfully placed for current round
-            const [hasCashedOut, setHasCashedOut] = React.useState(false);
-            const [cashOutMultiplier, setCashOutMultiplier] = React.useState(null);
-            const [message, setMessage] = React.useState('');
-            const multiplierIntervalId = React.useRef(null); // For setInterval
-            const crashPoint = React.useRef(0); // The random point where the plane crashes
-            const multiplierIncrement = 0.1; // The fixed increment for the multiplier (0.1x, 0.2x, etc.)
-            const updateIntervalMs = 200; // How often the multiplier updates (e.g., every 200ms)
-            const videoRef = React.useRef(null); // Ref for the video element
-
-            // Effect for the 10-second betting phase countdown
-            React.useEffect(() => {
-                let timerInterval;
-                if (isBettingPhase) {
-                    setBettingTimer(10); // Reset timer to 10 if starting a new betting phase
-                    timerInterval = setInterval(() => {
-                        setBettingTimer(prev => {
-                            if (prev <= 1) {
-                                clearInterval(timerInterval);
-                                setIsBettingPhase(false); // End betting phase
-                                if (betPlaced) {
-                                    startFlyingPhase(); // Start game if bet was placed
-                                } else {
-                                    // If no bet placed, reset for next round after a short delay
-                                    setMessage("No bet placed. New round starting soon...");
-                                    setTimeout(resetGame, 3000);
-                                }
-                                return 0;
-                            }
-                            return prev - 1;
-                        });
-                    }, 1000);
-                }
-                // Cleanup interval on component unmount or if phase changes
-                return () => clearInterval(timerInterval);
-            }, [isBettingPhase, betPlaced]); // Re-run if betting phase or betPlaced status changes
-
-            // Effect to control video playback based on isFlying state
-            React.useEffect(() => {
-                if (videoRef.current) {
-                    if (isFlying) {
-                        videoRef.current.play().catch(error => console.error("Video play error:", error));
-                    } else {
-                        videoRef.current.pause();
-                        // Optionally reset video to start when not flying
-                        videoRef.current.currentTime = 0;
-                    }
-                }
-            }, [isFlying]);
-
-            // Function to start the flying phase
-            const startFlyingPhase = () => {
-                setMultiplier(1.00); // Start multiplier from 1.00
-                setIsFlying(true);
-                setHasCashedOut(false);
-                setCashOutMultiplier(null);
-                setMessage('');
-
-                // Generate a random crash point between 1.1x and 5.00x, skewed heavily towards lower values
-                const minCrash = 1.10;
-                const maxCrash = 5.00; // Increased max crash point
-                const range = maxCrash - minCrash;
-                // Using Math.pow(Math.random(), 3) to skew the distribution more heavily towards lower numbers.
-                // A higher power makes higher values even rarer.
-                const skewedRandom = Math.pow(Math.random(), 3);
-                let calculatedCrashPoint = minCrash + skewedRandom * range;
-
-                // Ensure it's a multiple of multiplierIncrement for clean jumps
-                calculatedCrashPoint = Math.round(calculatedCrashPoint / multiplierIncrement) * multiplierIncrement;
-                calculatedCrashPoint = parseFloat(calculatedCrashPoint.toFixed(2)); // Re-fix to 2 decimal places
-
-                // Ensure crashPoint is within the specified range (1.10 to 5.00)
-                if (calculatedCrashPoint < minCrash) calculatedCrashPoint = minCrash;
-                if (calculatedCrashPoint > maxCrash) calculatedCrashPoint = maxCrash;
-
-                crashPoint.current = calculatedCrashPoint;
-                console.log("Crash point:", crashPoint.current.toFixed(2));
-
-                // Start multiplier increasing using setInterval for discrete jumps
-                multiplierIntervalId.current = setInterval(() => {
-                    setMultiplier(prev => {
-                        let newMultiplier = parseFloat((prev + multiplierIncrement).toFixed(2));
-
-                        // Check for crash condition before updating state
-                        if (newMultiplier >= crashPoint.current) {
-                            clearInterval(multiplierIntervalId.current); // Stop interval
-                            setIsFlying(false); // Stop flying animation
-                            if (!hasCashedOut) { // If user hasn't cashed out, it's a loss
-                                setMessage(`CRASHED at x${crashPoint.current.toFixed(2)}! You lost ₹${betAmount.toFixed(2)}.`);
-                                setBalance(prevBalance => prevBalance - betAmount); // Deduct bet amount
-                            }
-                            setBetPlaced(false); // Mark bet as resolved
-                            setTimeout(resetGame, 3000); // Reset game for new round after 3 seconds
-                            return crashPoint.current; // Display the exact crash point
-                        }
-                        return newMultiplier; // Continue increasing multiplier
-                    });
-                }, updateIntervalMs); // Update every X milliseconds
-            };
-
-            // Handler for placing a bet
-            const handlePlaceBet = () => {
-                const finalBetAmount = customBetAmount !== '' ? parseFloat(customBetAmount) : betAmount;
-
-                if (isNaN(finalBetAmount) || finalBetAmount <= 0) {
-                    setMessage("Please enter a valid bet amount.");
-                    return;
-                }
-                if (balance < finalBetAmount) {
-                    setMessage("Insufficient balance!");
-                    return;
-                }
-                if (!isBettingPhase) {
-                    setMessage("Betting is closed for this round.");
-                    return;
-                }
-                if (betPlaced) {
-                    setMessage("You have already placed a bet for this round.");
-                    return;
-                }
-
-                setMessage(''); // Clear previous messages
-                setBalance(prev => prev - finalBetAmount); // Deduct bet immediately
-                setBetAmount(finalBetAmount); // Store the actual bet amount for this round
-                setBetPlaced(true); // Mark bet as placed
-                // The betting timer useEffect will handle starting the flying phase after 10 seconds
-            };
-
-            // Handler for cashing out
-            const handleCashOut = () => {
-                if (isFlying && betPlaced && !hasCashedOut) { // Can only cash out if flying, bet placed, and not already cashed out
-                    setIsFlying(false); // Stop flying animation
-                    clearInterval(multiplierIntervalId.current); // Stop the multiplier interval
-                    const winnings = betAmount * multiplier; // Calculate winnings
-                    setBalance(prev => prev + winnings); // Add winnings to balance
-                    setHasCashedOut(true); // Mark as cashed out
-                    setCashOutMultiplier(multiplier); // Record multiplier at cash out
-                    setMessage(`CASHED OUT at x${multiplier.toFixed(2)}! You won ₹${winnings.toFixed(2)}.`);
-                    setBetPlaced(false); // Mark bet as resolved
-                    setTimeout(resetGame, 3000); // Reset game for new round after 3 seconds
-                }
-            };
-
-            // Function to reset all game states for a new round
-            const resetGame = () => {
-                setBetAmount(10); // Reset bet amount input to default
-                setCustomBetAmount(''); // Clear custom bet input
-                setIsFlying(false);
-                setMultiplier(1.00);
-                setBetPlaced(false);
-                setHasCashedOut(false);
-                setCashOutMultiplier(null);
-                setMessage('');
-                setIsBettingPhase(true); // Start a new betting phase
-                setBettingTimer(10); // Reset betting timer
-            };
-
-            // Cleanup function: ensures intervals are cleared when component unmounts
-            React.useEffect(() => {
-                return () => {
-                    clearInterval(multiplierIntervalId.current);
-                };
-            }, []);
-
-            return (
-                <div className="max-w-md mx-auto bg-gradient-to-b from-orange-400 to-red-600 min-h-screen text-white p-4 flex flex-col">
-                    {/* Header with back button and game title */}
-                    <div className="flex items-center gap-2 mb-6">
-                        <button onClick={() => navigateTo('gameSelection')} className="p-2 rounded-full bg-white bg-opacity-30">
-                            <ArrowLeft className="w-5 h-5 text-white" />
-                        </button>
-                        <h2 className="text-xl font-bold">Aviator Game</h2>
-                        <div className="ml-auto flex gap-2 items-center">
-                            <Coins className="w-5 h-5" />
-                            <TrendingUp className="w-5 h-5" />
-                        </div>
-                    </div>
-
-                    {/* Wallet Balance Display */}
-                    <div className="bg-white bg-opacity-20 rounded-lg p-4 text-center mb-4">
-                        <div className="text-2xl font-bold">₹{balance.toFixed(2)}</div>
-                        <div className="text-sm opacity-80">Wallet balance</div>
-                        <div className="flex gap-2 mt-3">
-                            <button
-                                className="flex-1 bg-red-400 py-2 rounded-lg"
-                                onClick={() => navigateTo('withdraw')}
-                            >
-                                Withdraw
-                            </button>
-                            <button
-                                className="flex-1 bg-green-500 py-2 rounded-lg"
-                                onClick={() => navigateTo('deposit')}
-                            >
-                                Deposit
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Game Area: Displays multiplier and rocket animation */}
-                    <div className="flex-grow flex flex-col items-center justify-center relative bg-gray-800 rounded-lg p-6 mb-4 overflow-hidden">
-                        {/* Video Background */}
-                        <video
-                            ref={videoRef}
-                            className="aviator-video-background"
-                            loop
-                            muted
-                            playsInline /* Important for mobile autoplay */
-                            onError={(e) => console.error("Video loading error:", e)}
-                        >
-                            <source src="rocketfly.webm" type="video/webm" />
-                            {/* Fallback for browsers that don't support WebM */}
-                            Your browser does not support the video tag.
-                        </video>
-
-                        {/* Rocket animation - only visible when flying */}
-                        {isFlying && (
-                            <Rocket className={`w-24 h-24 text-yellow-300 absolute transition-transform duration-100 ${isFlying ? 'animate-fly' : ''} z-10`} />
-                        )}
-                        {/* Multiplier display */}
-                        <div className="text-6xl font-extrabold text-yellow-300 drop-shadow-lg z-10">
-                            x{multiplier.toFixed(2)}
-                        </div>
-                        {/* Status messages based on game phase */}
-                        {isBettingPhase && (
-                            <div className="absolute bottom-4 text-white text-lg font-semibold z-10">
-                                Place your bets: {bettingTimer}s
-                            </div>
-                        )}
-                        {!isBettingPhase && !isFlying && betPlaced && !hasCashedOut && (
-                             <div className="absolute bottom-4 text-red-400 text-xl font-semibold z-10">
-                                CRASHED!
-                            </div>
-                        )}
-                        {hasCashedOut && cashOutMultiplier && (
-                            <div className="absolute bottom-4 text-green-400 text-xl font-semibold z-10">
-                                CASHED OUT at x{cashOutMultiplier.toFixed(2)}!
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Betting Controls */}
-                    <div className="bg-white bg-opacity-20 rounded-lg p-6">
-                        <div className="mb-4">
-                            <label htmlFor="aviator-bet-amount" className="block text-sm font-semibold mb-2">Bet Amount (₹)</label>
-                            <div className="flex items-center gap-2">
-                                <div className="flex gap-1">
-                                    {[10, 50, 100].map((amount) => (
-                                        <button
-                                            key={amount}
-                                            onClick={() => { setBetAmount(amount); setCustomBetAmount(''); }}
-                                            className={`px-3 py-1 rounded text-xs ${
-                                                (betAmount === amount && customBetAmount === '') && !betPlaced ? 'bg-yellow-400 text-red-800' : 'bg-white bg-opacity-30'
-                                            } hover:bg-yellow-500 transition-colors`}
-                                            disabled={!isBettingPhase || betPlaced} /* Disable during flight or if bet already placed */
-                                        >
-                                            {amount}
-                                        </button>
-                                    ))}
-                                </div>
-                                <input
-                                    id="aviator-bet-amount"
-                                    type="number"
-                                    value={customBetAmount}
-                                    onChange={(e) => setCustomBetAmount(e.target.value)}
-                                    className="flex-1 p-2 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-yellow-300 min-w-0"
-                                    placeholder="Custom"
-                                    min="1"
-                                    disabled={!isBettingPhase || betPlaced} /* Disable during flight or if bet already placed */
-                                />
-                            </div>
-                        </div>
-
-                        {/* Action Button: Place Bet or Cash Out */}
-                        {!betPlaced ? ( // If no bet placed for current round, show Place Bet button
-                            <button
-                                onClick={handlePlaceBet}
-                                className="w-full bg-green-500 py-3 rounded-lg font-bold text-white hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                disabled={!isBettingPhase || (isNaN(parseFloat(customBetAmount !== '' ? customBetAmount : betAmount)) || parseFloat(customBetAmount !== '' ? customBetAmount : betAmount) <= 0)}
-                            >
-                                PLACE BET (₹{customBetAmount !== '' ? parseFloat(customBetAmount).toFixed(2) : betAmount.toFixed(2)})
-                            </button>
-                        ) : ( // If bet placed, show Cash Out if flying, or disabled if not flying (crashed/cashed out)
-                            <button
-                                onClick={handleCashOut}
-                                className="w-full bg-red-500 py-3 rounded-lg font-bold text-white hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                disabled={!isFlying || hasCashedOut} /* Disable if not flying or already cashed out */
-                            >
-                                CASH OUT (x{multiplier.toFixed(2)})
-                            </button>
-                        )}
-
-                        {/* Game Messages */}
-                        {message && (
-                            <div className={`mt-4 p-3 rounded-lg text-center ${
-                                message.includes('won') || message.includes('CASHED OUT') ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800'
-                            }`}>
-                                {message}
-                            </div>
-                        )}
-                    </div>
                 </div>
             );
         };
@@ -1771,16 +1473,6 @@
                             <p className="text-sm opacity-80">Predict the next color and win!</p>
                         </div>
 
-                        <div
-                            className="bg-white bg-opacity-10 rounded-lg p-6 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-opacity-20 transition-all"
-                            onClick={() => navigateTo('aviator')}
-                        >
-                            {/* Custom image for Aviator, made circular */}
-                            <img src="rocket.png" alt="Aviator Game Icon" className="w-24 h-24 rounded-full object-cover mb-4" onError={(e)=>{e.target.onerror = null; e.target.src='https://placehold.co/96x96/FFD700/000000?text=Rocket'}} />
-                            <h3 className="text-xl font-bold mb-2">Aviator Game</h3>
-                            <p className="text-sm opacity-80">Fly high and cash out!</p>
-                        </div>
-
                         {/* New Mines Game Option with custom image */}
                         <div
                             className="bg-white bg-opacity-10 rounded-lg p-6 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-opacity-20 transition-all"
@@ -1934,14 +1626,8 @@
                                 setGameHistory={setGameHistory}
                                 addDepositToHistory={addDepositToHistory}
                                 addWithdrawToHistory={addWithdrawToHistory}
-                            />;
-                case 'aviator':
-                    return <AviatorGame
-                                balance={balance}
-                                setBalance={setBalance}
-                                navigateTo={navigateTo}
-                                addDepositToHistory={addDepositToHistory}
-                                addWithdrawToHistory={addWithdrawToHistory}
+                                currentUser={currentUser}
+                                updateUserData={updateUserData}
                             />;
                 case 'deposit':
                     return <DepositPage setBalance={setBalance} navigateTo={navigateTo} addDepositToHistory={addDepositToHistory} />;
