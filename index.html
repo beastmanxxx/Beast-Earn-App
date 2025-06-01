@@ -475,7 +475,7 @@
                     onError(); // Play error sound for invalid file type
                     setMessage({ 
                         type: 'error', 
-                        text: '⚠️ Only image files are accepted. Please take a screenshot of your payment.' 
+                        text: '⚠️ Screenshot is incorrect submit valid screenshot.' 
                     });
                     return false;
                 }
@@ -490,7 +490,7 @@
                     onError(); // Play error sound for old image
                     setMessage({ 
                         type: 'error', 
-                        text: '⚠️ This screenshot is too old. Please take a fresh screenshot within 2 minutes of payment.' 
+                        text: '⚠️ Screenshot is incorrect submit valid screenshot.' 
                     });
                     return false;
                 }
@@ -562,7 +562,7 @@
                     onError(); // Play error sound for non-phone image
                     setMessage({ 
                         type: 'error', 
-                        text: '⚠️ Only screenshots taken directly from your phone are accepted. Please take a fresh screenshot of your payment.' 
+                        text: '⚠️ Screenshot is incorrect submit valid screenshot.' 
                     });
                     return false;
                 }
@@ -571,7 +571,7 @@
                     onError(); // Play error sound for downloaded image
                     setMessage({ 
                         type: 'error', 
-                        text: '⚠️ Downloaded or saved images are not accepted. Please take a fresh screenshot of your payment directly from your phone.' 
+                        text: '⚠️ Screenshot is incorrect submit valid screenshot.' 
                     });
                     return false;
                 }
