@@ -1263,7 +1263,7 @@
         const MinesGame = ({ balance, setBalance, navigateTo }) => {
             const [betAmount, setBetAmount] = React.useState(10);
             const [customBetAmount, setCustomBetAmount] = React.useState('');
-            const [grid, setGrid] = React.useState([]); // Array of { id, status: 'unopened' | 'safe' | 'mine', value: null | 'safe' | 'mine' }
+            const [grid, setGrid] = React.useState([]);
             const [minesPositions, setMinesPositions] = React.useState([]);
             const [safeOpenedCount, setSafeOpenedCount] = React.useState(0);
             const [currentMultiplier, setCurrentMultiplier] = React.useState(1.00);
@@ -1271,7 +1271,24 @@
             const [isGameActive, setIsGameActive] = React.useState(false);
             const [message, setMessage] = React.useState('');
 
-            const NUM_BOXES = 25; // 5x5 grid
+            // Create audio objects
+            const coinSound = new Audio('coin.mp3');
+            const boomSound = new Audio('boom.mp3');
+            const cashoutSound = new Audio('dw.mp3');
+
+            // Cleanup audio when component unmounts
+            React.useEffect(() => {
+                return () => {
+                    coinSound.pause();
+                    coinSound.currentTime = 0;
+                    boomSound.pause();
+                    boomSound.currentTime = 0;
+                    cashoutSound.pause();
+                    cashoutSound.currentTime = 0;
+                };
+            }, []);
+
+            const NUM_BOXES = 25;
             const NUM_MINES = 5;
 
             // Function to generate the grid and place mines randomly
@@ -1324,7 +1341,7 @@
 
             // Handler for clicking a box on the grid
             const handleBoxClick = (index) => {
-                if (!isGameActive || grid[index].status !== 'unopened') return; // Only allow clicks on unopened boxes in active game
+                if (!isGameActive || grid[index].status !== 'unopened') return;
 
                 const newGrid = [...grid];
                 const clickedBox = newGrid[index];
@@ -1332,10 +1349,12 @@
                 if (clickedBox.value === 'mine') {
                     // Player hit a mine
                     clickedBox.status = 'mine';
-                    setIsGameActive(false); // End the game
+                    setIsGameActive(false);
                     setMessage(`BOOM! You hit a mine. You lost ₹${betAmount.toFixed(2)}.`);
-                    revealAllBoxes(newGrid); // Show all mines on the grid
-                    setTimeout(resetGame, 3000); // Reset game after a delay
+                    boomSound.currentTime = 0;
+                    boomSound.play().catch(error => console.log('Error playing boom sound:', error));
+                    revealAllBoxes(newGrid);
+                    setTimeout(resetGame, 3000);
                 } else {
                     // Player opened a safe box
                     clickedBox.status = 'safe';
@@ -1346,13 +1365,16 @@
                     setCurrentMultiplier(nextMultiplier);
                     setPotentialWinnings(parseFloat((betAmount * nextMultiplier).toFixed(2)));
                     setMessage(`Safe! Current Multiplier: x${nextMultiplier.toFixed(2)}`);
+                    
+                    // Play coin sound for safe box
+                    coinSound.currentTime = 0;
+                    coinSound.play().catch(error => console.log('Error playing coin sound:', error));
 
-                    // Check if all safe boxes have been opened (automatic cashout)
                     if (newSafeOpenedCount === NUM_BOXES - NUM_MINES) {
-                        handleCashOut(newGrid); // Automatic cashout if all safe boxes are found
+                        handleCashOut(newGrid);
                     }
                 }
-                setGrid(newGrid); // Update the grid state
+                setGrid(newGrid);
             };
 
             // Function to reveal all boxes (mines and unopened safes) at game end
@@ -1372,11 +1394,16 @@
                     return;
                 }
 
-                setIsGameActive(false); // End the game
-                setBalance(prev => prev + potentialWinnings); // Add winnings to balance
+                setIsGameActive(false);
+                setBalance(prev => prev + potentialWinnings);
                 setMessage(`Cashed out x${currentMultiplier.toFixed(2)}! You won ₹${potentialWinnings.toFixed(2)}!`);
-                revealAllBoxes(gridOnCashOut); // Show all mines on the grid
-                setTimeout(resetGame, 3000); // Reset game after a delay
+                
+                // Play cashout sound
+                cashoutSound.currentTime = 0;
+                cashoutSound.play().catch(error => console.log('Error playing cashout sound:', error));
+                
+                revealAllBoxes(gridOnCashOut);
+                setTimeout(resetGame, 3000);
             };
 
             // Function to reset game state for a new round
