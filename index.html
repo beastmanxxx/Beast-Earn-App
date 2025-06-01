@@ -461,13 +461,51 @@
         const DepositPage = ({ setBalance, navigateTo, addDepositToHistory }) => {
             const [depositAmount, setDepositAmount] = React.useState('');
             const [utrNumber, setUtrNumber] = React.useState('');
-            const [paymentScreenshot, setPaymentScreenshot] = React.useState(null); // New state for screenshot file
+            const [paymentScreenshot, setPaymentScreenshot] = React.useState(null);
             const [message, setMessage] = React.useState(null);
             const upiId = "8979873681@mbk";
             const upiQrCodeUrl = "qr.png";
 
-            const MIN_DEPOSIT_AMOUNT = 10; // Defined minimum deposit amount
+            const MIN_DEPOSIT_AMOUNT = 10;
 
+            // Function to check if the uploaded file is a screenshot
+            const isScreenshot = (file) => {
+                // Check file type
+                if (!file.type.startsWith('image/')) {
+                    return false;
+                }
+
+                // Check file name for common screenshot patterns
+                const screenshotPatterns = [
+                    'screenshot',
+                    'screencap',
+                    'screen_capture',
+                    'screen-capture',
+                    'screen shot',
+                    'screen-shot',
+                    'screen_cap',
+                    'screen-cap'
+                ];
+
+                const fileName = file.name.toLowerCase();
+                return screenshotPatterns.some(pattern => fileName.includes(pattern));
+            };
+
+            const handleFileChange = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    if (isScreenshot(file)) {
+                        setPaymentScreenshot(file);
+                        setMessage({ type: 'success', text: 'Screenshot uploaded successfully!' });
+                    } else {
+                        setPaymentScreenshot(null);
+                        setMessage({ 
+                            type: 'error', 
+                            text: '⚠️ WARNING: Please upload a valid payment screenshot. Submitting incorrect screenshots may result in account blocking. Your account security is important to us.' 
+                        });
+                    }
+                }
+            };
 
             const generateUpiLink = () => {
                 const amount = parseFloat(depositAmount);
@@ -494,19 +532,22 @@
 
             const handleManualConfirmation = () => {
                 const amount = parseFloat(depositAmount);
-                setMessage(null); // Clear previous messages
+                setMessage(null);
 
-                if (isNaN(amount) || amount < MIN_DEPOSIT_AMOUNT) { // Changed condition
-                     setMessage({ type: 'error', text: `Please enter a valid amount (minimum ₹${MIN_DEPOSIT_AMOUNT}).` });
-                     return;
+                if (isNaN(amount) || amount < MIN_DEPOSIT_AMOUNT) {
+                    setMessage({ type: 'error', text: `Please enter a valid amount (minimum ₹${MIN_DEPOSIT_AMOUNT}).` });
+                    return;
                 }
                 if (!utrNumber || utrNumber.length < 12) {
                     setMessage({ type: 'error', text: 'Please enter a valid UTR/Transaction ID (min 12 characters).' });
                     return;
                 }
-                // New check: Ensure screenshot is submitted
                 if (!paymentScreenshot) {
-                    setMessage({ type: 'error', text: 'Please submit payment screenshot.' });
+                    setMessage({ type: 'error', text: 'Please upload a payment screenshot.' });
+                    return;
+                }
+                if (!isScreenshot(paymentScreenshot)) {
+                    setMessage({ type: 'error', text: 'Please upload a valid payment screenshot. Other image types are not accepted.' });
                     return;
                 }
 
@@ -516,11 +557,10 @@
                     utr: utrNumber,
                     timestamp: new Date().toISOString()
                 });
-                setMessage({ type: 'success', text: `₹${amount.toFixed(2)} added to your balance with UTR: ${utrNumber}! (Manual confirmation)` });
+                setMessage({ type: 'success', text: `₹${amount.toFixed(2)} added to your balance with UTR: ${utrNumber}!` });
                 setDepositAmount('');
                 setUtrNumber('');
-                setPaymentScreenshot(null); // Clear selected screenshot
-                // Note: The screenshot file itself is not stored or uploaded as there's no backend.
+                setPaymentScreenshot(null);
                 setTimeout(() => {
                     setMessage(null);
                     navigateTo('gameSelection');
@@ -589,7 +629,7 @@
                             id="payment-screenshot"
                             type="file"
                             accept="image/*"
-                            onChange={(e) => setPaymentScreenshot(e.target.files[0])}
+                            onChange={handleFileChange}
                             className="w-full text-sm text-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-yellow-400 file:text-red-800 hover:file:bg-yellow-500 mb-4"
                         />
                          {paymentScreenshot && (
