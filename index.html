@@ -458,7 +458,7 @@
 
 
         // --- Deposit Page Component ---
-        const DepositPage = ({ setBalance, navigateTo, addDepositToHistory }) => {
+        const DepositPage = ({ setBalance, navigateTo, addDepositToHistory, onError }) => {
             const [depositAmount, setDepositAmount] = React.useState('');
             const [utrNumber, setUtrNumber] = React.useState('');
             const [paymentScreenshot, setPaymentScreenshot] = React.useState(null);
@@ -472,6 +472,7 @@
             const isScreenshot = (file) => {
                 // Check file type
                 if (!file.type.startsWith('image/')) {
+                    onError(); // Play error sound for invalid file type
                     return false;
                 }
 
@@ -488,7 +489,11 @@
                 ];
 
                 const fileName = file.name.toLowerCase();
-                return screenshotPatterns.some(pattern => fileName.includes(pattern));
+                const isValid = screenshotPatterns.some(pattern => fileName.includes(pattern));
+                if (!isValid) {
+                    onError(); // Play error sound for invalid screenshot
+                }
+                return isValid;
             };
 
             const handleFileChange = (e) => {
@@ -509,7 +514,8 @@
 
             const generateUpiLink = () => {
                 const amount = parseFloat(depositAmount);
-                if (isNaN(amount) || amount < MIN_DEPOSIT_AMOUNT) { // Changed condition
+                if (isNaN(amount) || amount < MIN_DEPOSIT_AMOUNT) {
+                    onError(); // Play error sound for invalid amount
                     setMessage({ type: 'error', text: `Please enter a valid amount (minimum ₹${MIN_DEPOSIT_AMOUNT}).` });
                     return null;
                 }
@@ -535,18 +541,22 @@
                 setMessage(null);
 
                 if (isNaN(amount) || amount < MIN_DEPOSIT_AMOUNT) {
+                    onError(); // Play error sound for invalid amount
                     setMessage({ type: 'error', text: `Please enter a valid amount (minimum ₹${MIN_DEPOSIT_AMOUNT}).` });
                     return;
                 }
                 if (!utrNumber || utrNumber.length < 12) {
+                    onError(); // Play error sound for invalid UTR
                     setMessage({ type: 'error', text: 'Please enter a valid UTR/Transaction ID (min 12 characters).' });
                     return;
                 }
                 if (!paymentScreenshot) {
-                    setMessage({ type: 'error', text: 'We do not add amount you are a scamer.' });
+                    onError(); // Play error sound for missing screenshot
+                    setMessage({ type: 'error', text: 'Please upload a payment screenshot.' });
                     return;
                 }
                 if (!isScreenshot(paymentScreenshot)) {
+                    onError(); // Play error sound for invalid screenshot
                     setMessage({ type: 'error', text: 'Please upload a valid payment screenshot. Other image types are not accepted.' });
                     return;
                 }
@@ -674,25 +684,28 @@
         };
 
         // --- Withdraw Page Component ---
-        const WithdrawPage = ({ balance, setBalance, navigateTo, addWithdrawToHistory }) => {
+        const WithdrawPage = ({ balance, setBalance, navigateTo, addWithdrawToHistory, onError }) => {
             const [withdrawAmount, setWithdrawAmount] = React.useState('');
             const [upiIdInput, setUpiIdInput] = React.useState('');
             const [message, setMessage] = React.useState(null);
             const formRef = React.useRef(null);
 
-            const MIN_WITHDRAW_AMOUNT = 200; // Defined minimum withdraw amount
+            const MIN_WITHDRAW_AMOUNT = 200;
 
             const handleWithdraw = async () => {
                 const amount = parseFloat(withdrawAmount);
-                if (isNaN(amount) || amount < MIN_WITHDRAW_AMOUNT) { // Changed condition
+                if (isNaN(amount) || amount < MIN_WITHDRAW_AMOUNT) {
+                    onError(); // Play error sound for invalid amount
                     setMessage({ type: 'error', text: `Please enter a valid amount (minimum ₹${MIN_WITHDRAW_AMOUNT}).` });
                     return;
                 }
                 if (!upiIdInput) {
+                    onError(); // Play error sound for missing UPI ID
                     setMessage({ type: 'error', text: 'Please enter your UPI ID.' });
                     return;
                 }
                 if (amount > balance) {
+                    onError(); // Play error sound for insufficient balance
                     setMessage({ type: 'error', text: 'Insufficient balance!' });
                     return;
                 }
@@ -723,9 +736,11 @@
                         setWithdrawAmount('');
                         setUpiIdInput('');
                     } else {
+                        onError(); // Play error sound for failed request
                         setMessage({ type: 'error', text: 'Failed to send withdrawal request. Please try again.' });
                     }
                 } catch (error) {
+                    onError(); // Play error sound for network error
                     console.error('Formspree submission error:', error);
                     setMessage({ type: 'error', text: 'An error occurred. Please check console.' });
                 }
@@ -1597,6 +1612,18 @@
             const [depositHistory, setDepositHistory] = React.useState([]);
             const [withdrawHistory, setWithdrawHistory] = React.useState([]);
 
+            // Function to play transaction success sound
+            const playTransactionSound = () => {
+                const audio = new Audio('dw.mp3');
+                audio.play().catch(error => console.log('Error playing audio:', error));
+            };
+
+            // Function to play error sound
+            const playErrorSound = () => {
+                const audio = new Audio('error.mp3');
+                audio.play().catch(error => console.log('Error playing audio:', error));
+            };
+
             // Listen for auth state changes
             React.useEffect(() => {
                 const unsubscribe = auth.onAuthStateChanged((user) => {
@@ -1676,10 +1703,20 @@
             // Handlers for state updates from child components
             const addDepositToHistory = (deposit) => {
                 setDepositHistory(prev => [deposit, ...prev]);
+                playTransactionSound(); // Play sound on successful deposit
             };
 
             const addWithdrawToHistory = (withdraw) => {
                 setWithdrawHistory(prev => [withdraw, ...prev]);
+                playTransactionSound(); // Play sound on successful withdrawal
+            };
+
+            const handleDepositError = () => {
+                playErrorSound(); // Play error sound on deposit mistakes
+            };
+
+            const handleWithdrawError = () => {
+                playErrorSound(); // Play error sound on withdrawal mistakes
             };
 
             const handleLogout = async () => {
@@ -1727,9 +1764,20 @@
                                 updateUserData={updateUserData}
                             />;
                 case 'deposit':
-                    return <DepositPage setBalance={setBalance} navigateTo={navigateTo} addDepositToHistory={addDepositToHistory} />;
+                    return <DepositPage 
+                                setBalance={setBalance} 
+                                navigateTo={navigateTo} 
+                                addDepositToHistory={addDepositToHistory}
+                                onError={handleDepositError}
+                            />;
                 case 'withdraw':
-                    return <WithdrawPage balance={balance} setBalance={setBalance} navigateTo={navigateTo} addWithdrawToHistory={addWithdrawToHistory} />;
+                    return <WithdrawPage 
+                                balance={balance} 
+                                setBalance={setBalance} 
+                                navigateTo={navigateTo} 
+                                addWithdrawToHistory={addWithdrawToHistory}
+                                onError={handleWithdrawError}
+                            />;
                 case 'history':
                     return <HistoryPage navigateTo={navigateTo} gameHistory={gameHistory} depositHistory={depositHistory} withdrawHistory={withdrawHistory} initialTab={historyInitialTab} />;
                 case 'mines':
