@@ -473,6 +473,10 @@
                 // Check file type - accept any image file
                 if (!file.type.startsWith('image/')) {
                     onError(); // Play error sound for invalid file type
+                    setMessage({ 
+                        type: 'error', 
+                        text: '⚠️ Only image files are accepted. Please take a screenshot of your payment.' 
+                    });
                     return false;
                 }
 
@@ -491,38 +495,56 @@
                     return false;
                 }
 
-                // Comprehensive check for downloaded images
+                // Check for phone manufacturer specific patterns
                 const fileName = file.name.toLowerCase();
                 const filePath = file.webkitRelativePath || file.name;
                 
-                // Check for common downloaded file patterns
+                // Phone manufacturer specific patterns
+                const phonePatterns = [
+                    // Samsung patterns
+                    'samsung', 'galaxy', 'screenshot_', 'sc_', 'screenshot-', 'sc-',
+                    // iPhone patterns
+                    'iphone', 'ios', 'screenshot_', 'photo_', 'img_', 'screenshot-', 'photo-', 'img-',
+                    // Xiaomi patterns
+                    'xiaomi', 'miui', 'screenshot_', 'sc_', 'screenshot-', 'sc-',
+                    // OnePlus patterns
+                    'oneplus', 'screenshot_', 'sc_', 'screenshot-', 'sc-',
+                    // Oppo patterns
+                    'oppo', 'coloros', 'screenshot_', 'sc_', 'screenshot-', 'sc-',
+                    // Vivo patterns
+                    'vivo', 'funtouch', 'screenshot_', 'sc_', 'screenshot-', 'sc-',
+                    // Realme patterns
+                    'realme', 'screenshot_', 'sc_', 'screenshot-', 'sc-',
+                    // Motorola patterns
+                    'motorola', 'screenshot_', 'sc_', 'screenshot-', 'sc-',
+                    // Google Pixel patterns
+                    'pixel', 'screenshot_', 'sc_', 'screenshot-', 'sc-',
+                    // Common phone screenshot patterns
+                    'screenshot', 'screen', 'capture', 'cap', 'shot'
+                ];
+
+                // Patterns that indicate downloaded or saved images
                 const downloadedPatterns = [
-                    // Common download folder patterns
+                    // Download related
                     'download', 'downloaded', 'saved', 'save', 'saves',
-                    // Common file naming patterns
-                    'screenshot_', 'img_', 'image_', 'photo_', 'picture_', 'saved_',
-                    'download_', 'downloaded_', 'screenshot-', 'img-', 'image-',
-                    'photo-', 'picture-', 'saved-', 'download-', 'downloaded-',
-                    // Common file extensions
-                    '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp',
-                    // Common prefixes
-                    'img', 'image', 'photo', 'picture', 'screenshot',
-                    // Common suffixes
-                    '_img', '_image', '_photo', '_picture', '_screenshot',
-                    // Common download-related words
-                    'copy', 'copied', 'duplicate', 'duplicated',
-                    // Common file system patterns
-                    'desktop', 'documents', 'pictures', 'photos', 'images',
-                    // Common date patterns
-                    '2024', '2023', '2022', '2021', '2020',
-                    // Common time patterns
-                    'am', 'pm', 'morning', 'afternoon', 'evening', 'night',
-                    // Common device patterns
-                    'camera', 'gallery', 'album', 'media', 'storage',
                     // Common app patterns
                     'whatsapp', 'telegram', 'messenger', 'facebook', 'instagram',
-                    'twitter', 'linkedin', 'pinterest', 'reddit', 'tiktok'
+                    'twitter', 'linkedin', 'pinterest', 'reddit', 'tiktok',
+                    // File system patterns
+                    'desktop', 'documents', 'pictures', 'photos', 'images',
+                    // Common suffixes
+                    '_img', '_image', '_photo', '_picture',
+                    // Common prefixes
+                    'img', 'image', 'photo', 'picture',
+                    // Common download-related words
+                    'copy', 'copied', 'duplicate', 'duplicated'
                 ];
+
+                // Check if the file is from a phone
+                const isFromPhone = phonePatterns.some(pattern => 
+                    fileName.includes(pattern) || 
+                    filePath.toLowerCase().includes(pattern)
+                );
 
                 // Check if the file appears to be downloaded
                 const isDownloaded = downloadedPatterns.some(pattern => 
@@ -536,16 +558,25 @@
                 (file.width && (file.width < 200 || file.width > 4000)) ||
                 (file.height && (file.height < 200 || file.height > 4000));
 
-                if (isDownloaded) {
-                    onError(); // Play error sound for downloaded image
+                if (!isFromPhone) {
+                    onError(); // Play error sound for non-phone image
                     setMessage({ 
                         type: 'error', 
-                        text: '⚠️ Downloaded or saved images are not accepted. Please take a fresh screenshot of your payment directly from your device.' 
+                        text: '⚠️ Only screenshots taken directly from your phone are accepted. Please take a fresh screenshot of your payment.' 
                     });
                     return false;
                 }
 
-                // Accept all image files as valid screenshots if they're recent enough and not downloaded
+                if (isDownloaded) {
+                    onError(); // Play error sound for downloaded image
+                    setMessage({ 
+                        type: 'error', 
+                        text: '⚠️ Downloaded or saved images are not accepted. Please take a fresh screenshot of your payment directly from your phone.' 
+                    });
+                    return false;
+                }
+
+                // Accept the image if it's from a phone, not downloaded, and recent
                 return true;
             };
 
