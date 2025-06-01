@@ -481,7 +481,7 @@
                 const currentTime = new Date();
                 const timeDifference = (currentTime - fileTime) / 1000 / 60; // Convert to minutes
 
-                // Check if the image is less than 3 minutes old
+                // Check if the image is less than 2 minutes old
                 if (timeDifference > 2) {
                     onError(); // Play error sound for old image
                     setMessage({ 
@@ -491,7 +491,61 @@
                     return false;
                 }
 
-                // Accept all image files as valid screenshots if they're recent enough
+                // Comprehensive check for downloaded images
+                const fileName = file.name.toLowerCase();
+                const filePath = file.webkitRelativePath || file.name;
+                
+                // Check for common downloaded file patterns
+                const downloadedPatterns = [
+                    // Common download folder patterns
+                    'download', 'downloaded', 'saved', 'save', 'saves',
+                    // Common file naming patterns
+                    'screenshot_', 'img_', 'image_', 'photo_', 'picture_', 'saved_',
+                    'download_', 'downloaded_', 'screenshot-', 'img-', 'image-',
+                    'photo-', 'picture-', 'saved-', 'download-', 'downloaded-',
+                    // Common file extensions
+                    '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp',
+                    // Common prefixes
+                    'img', 'image', 'photo', 'picture', 'screenshot',
+                    // Common suffixes
+                    '_img', '_image', '_photo', '_picture', '_screenshot',
+                    // Common download-related words
+                    'copy', 'copied', 'duplicate', 'duplicated',
+                    // Common file system patterns
+                    'desktop', 'documents', 'pictures', 'photos', 'images',
+                    // Common date patterns
+                    '2024', '2023', '2022', '2021', '2020',
+                    // Common time patterns
+                    'am', 'pm', 'morning', 'afternoon', 'evening', 'night',
+                    // Common device patterns
+                    'camera', 'gallery', 'album', 'media', 'storage',
+                    // Common app patterns
+                    'whatsapp', 'telegram', 'messenger', 'facebook', 'instagram',
+                    'twitter', 'linkedin', 'pinterest', 'reddit', 'tiktok'
+                ];
+
+                // Check if the file appears to be downloaded
+                const isDownloaded = downloadedPatterns.some(pattern => 
+                    fileName.includes(pattern) || 
+                    filePath.toLowerCase().includes(pattern)
+                ) || 
+                // Check for common file size patterns (too small or too large for a screenshot)
+                file.size < 10000 || // Less than 10KB
+                file.size > 10000000 || // More than 10MB
+                // Check for common image dimensions (if available)
+                (file.width && (file.width < 200 || file.width > 4000)) ||
+                (file.height && (file.height < 200 || file.height > 4000));
+
+                if (isDownloaded) {
+                    onError(); // Play error sound for downloaded image
+                    setMessage({ 
+                        type: 'error', 
+                        text: '⚠️ Downloaded or saved images are not accepted. Please take a fresh screenshot of your payment directly from your device.' 
+                    });
+                    return false;
+                }
+
+                // Accept all image files as valid screenshots if they're recent enough and not downloaded
                 return true;
             };
 
