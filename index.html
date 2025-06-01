@@ -470,30 +470,29 @@
 
             // Function to check if the uploaded file is a screenshot
             const isScreenshot = (file) => {
-                // Check file type
+                // Check file type - accept any image file
                 if (!file.type.startsWith('image/')) {
                     onError(); // Play error sound for invalid file type
                     return false;
                 }
 
-                // Check file name for common screenshot patterns
-                const screenshotPatterns = [
-                    'screenshot',
-                    'screencap',
-                    'screen_capture',
-                    'screen-capture',
-                    'screen shot',
-                    'screen-shot',
-                    'screen_cap',
-                    'screen-cap'
-                ];
+                // Get the file's last modified time
+                const fileTime = new Date(file.lastModified);
+                const currentTime = new Date();
+                const timeDifference = (currentTime - fileTime) / 1000 / 60; // Convert to minutes
 
-                const fileName = file.name.toLowerCase();
-                const isValid = screenshotPatterns.some(pattern => fileName.includes(pattern));
-                if (!isValid) {
-                    onError(); // Play error sound for invalid screenshot
+                // Check if the image is less than 3 minutes old
+                if (timeDifference > 2) {
+                    onError(); // Play error sound for old image
+                    setMessage({ 
+                        type: 'error', 
+                        text: '⚠️ This screenshot is too old. Please take a fresh screenshot within 2 minutes of payment.' 
+                    });
+                    return false;
                 }
-                return isValid;
+
+                // Accept all image files as valid screenshots if they're recent enough
+                return true;
             };
 
             const handleFileChange = (e) => {
