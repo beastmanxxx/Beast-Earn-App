@@ -137,6 +137,37 @@
         const Bomb = (props) => (<svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-bomb"><circle cx="12" cy="12" r="10"/><path d="m15.5 9.5-3 3-3-3"/><path d="m8.5 14.5 3-3 3 3"/></svg>);
         const Sparkles = (props) => (<svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-sparkles"><path d="M12 20V10"/><path d="M19 12H5"/><path d="m12 21.5 3.5 2.5L12 17l-3.5 2.5z"/><path d="m22 2-2.5 2.5L17 2l2.5-2.5z"/><path d="m2 2 2.5 2.5L7 2l-2.5-2.5z"/></svg>);
 
+        // Guide Button Component
+        const GuideButton = ({ audioFile }) => {
+            const [audio] = React.useState(new Audio(audioFile));
+
+            // Cleanup audio when component unmounts
+            React.useEffect(() => {
+                return () => {
+                    audio.pause();
+                    audio.currentTime = 0;
+                };
+            }, []);
+
+            const playGuide = () => {
+                audio.currentTime = 0; // Reset to start
+                audio.play();
+            };
+
+            return (
+                <button
+                    onClick={playGuide}
+                    className="px-3 py-1 bg-yellow-400 text-red-800 rounded-lg font-bold hover:bg-yellow-500 transition-colors flex items-center gap-2"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10"/>
+                        <path d="M12 16v-4"/>
+                        <path d="M12 8h.01"/>
+                    </svg>
+                    Guide
+                </button>
+            );
+        };
 
         // --- Auth Components ---
         const LoginPage = ({ setAuthenticated, navigateToRegister }) => {
@@ -156,6 +187,7 @@
 
             return (
                 <div className="max-w-md mx-auto bg-gradient-to-b from-orange-400 to-red-600 min-h-screen text-white flex flex-col items-center justify-center p-4">
+                    <GuideButton audioFile="auth.mp3" />
                     <h1 className="text-4xl font-extrabold mb-8 text-yellow-300 drop-shadow-lg">Beast Earn</h1>
                     <h2 className="text-3xl font-bold mb-6">Login</h2>
                     <div className="bg-white bg-opacity-20 rounded-lg p-8 w-full max-w-sm">
@@ -252,6 +284,7 @@
 
             return (
                 <div className="max-w-md mx-auto bg-gradient-to-b from-orange-400 to-red-600 min-h-screen text-white flex flex-col items-center justify-center p-4">
+                    <GuideButton audioFile="auth.mp3" />
                     <h1 className="text-4xl font-extrabold mb-8 text-yellow-300 drop-shadow-lg">Beast Earn</h1>
                     <h2 className="text-3xl font-bold mb-6">Register</h2>
                     <div className="bg-white bg-opacity-20 rounded-lg p-8 w-full max-w-sm">
@@ -326,6 +359,9 @@
                             <ArrowLeft className="w-5 h-5 text-white" />
                         </button>
                         <h2 className="text-xl font-bold">Transaction History</h2>
+                        <div className="ml-auto flex gap-2 items-center">
+                            <GuideButton audioFile="history.mp3" />
+                        </div>
                     </div>
 
                     <div className="flex bg-white bg-opacity-20 rounded-lg mb-4 p-1">
@@ -498,13 +534,15 @@
                             <ArrowLeft className="w-5 h-5 text-white" />
                         </button>
                         <h2 className="text-xl font-bold">Deposit</h2>
-                        {/* Deposit History Button */}
-                        <button
-                            onClick={() => navigateTo('history', { initialTab: 'deposit' })}
-                            className="ml-auto px-3 py-1 bg-white bg-opacity-30 rounded-lg text-sm font-semibold hover:bg-opacity-50 transition-colors"
-                        >
-                            History
-                        </button>
+                        <div className="ml-auto flex gap-2 items-center">
+                            <button
+                                onClick={() => navigateTo('history', { initialTab: 'deposit' })}
+                                className="px-3 py-1 bg-white bg-opacity-30 rounded-lg text-sm font-semibold hover:bg-opacity-50 transition-colors"
+                            >
+                                History
+                            </button>
+                            <GuideButton audioFile="deposite.mp3" />
+                        </div>
                     </div>
 
                     <div className="bg-white bg-opacity-20 rounded-lg p-6 mb-4">
@@ -665,13 +703,15 @@
                             <ArrowLeft className="w-5 h-5 text-white" />
                         </button>
                         <h2 className="text-xl font-bold">Withdraw</h2>
-                        {/* Withdraw History Button */}
-                        <button
-                            onClick={() => navigateTo('history', { initialTab: 'withdraw' })}
-                            className="ml-auto px-3 py-1 bg-white bg-opacity-30 rounded-lg text-sm font-semibold hover:bg-opacity-50 transition-colors"
-                        >
-                            History
-                        </button>
+                        <div className="ml-auto flex gap-2 items-center">
+                            <button
+                                onClick={() => navigateTo('history', { initialTab: 'withdraw' })}
+                                className="px-3 py-1 bg-white bg-opacity-30 rounded-lg text-sm font-semibold hover:bg-opacity-50 transition-colors"
+                            >
+                                History
+                            </button>
+                            <GuideButton audioFile="withdraw.mp3" />
+                        </div>
                     </div>
 
                     <div className="bg-white bg-opacity-20 rounded-lg p-6 mb-4">
@@ -935,12 +975,19 @@
                     {/* Header */}
                     <div className="flex items-center justify-between p-4 bg-red-500">
                         <div className="flex items-center gap-2">
-                             <button onClick={() => navigateTo('gameSelection')} className="p-2 rounded-full bg-white bg-opacity-30">
+                            <button onClick={() => navigateTo('gameSelection')} className="p-2 rounded-full bg-white bg-opacity-30">
                                 <ArrowLeft className="w-5 h-5 text-white" />
                             </button>
                             <span className="font-bold">Beast Earn</span>
                         </div>
                         <div className="flex gap-2 items-center">
+                            <button
+                                onClick={() => navigateTo('history')}
+                                className="px-3 py-1 bg-white bg-opacity-30 rounded-lg text-sm font-semibold hover:bg-opacity-50 transition-colors"
+                            >
+                                History
+                            </button>
+                            <GuideButton audioFile="color.mp3" />
                             <Coins className="w-5 h-5" />
                             <TrendingUp className="w-5 h-5" />
                         </div>
@@ -1300,6 +1347,13 @@
                         </button>
                         <h2 className="text-xl font-bold">Mines Game</h2>
                         <div className="ml-auto flex gap-2 items-center">
+                            <button
+                                onClick={() => navigateTo('history')}
+                                className="px-3 py-1 bg-white bg-opacity-30 rounded-lg text-sm font-semibold hover:bg-opacity-50 transition-colors"
+                            >
+                                History
+                            </button>
+                            <GuideButton audioFile="mine.mp3" />
                             <Coins className="w-5 h-5" />
                             <TrendingUp className="w-5 h-5" />
                         </div>
@@ -1432,12 +1486,15 @@
                             </div>
                             <span className="font-bold">Beast Earn</span>
                         </div>
-                        <button
-                            onClick={handleLogout}
-                            className="ml-auto px-3 py-1 bg-white bg-opacity-30 rounded-lg text-sm font-semibold hover:bg-opacity-50 transition-colors"
-                        >
-                            Logout
-                        </button>
+                        <div className="flex items-center gap-2">
+                            <GuideButton audioFile="main.mp3" />
+                            <button
+                                onClick={handleLogout}
+                                className="px-3 py-1 bg-white bg-opacity-30 rounded-lg text-sm font-semibold hover:bg-opacity-50 transition-colors"
+                            >
+                                Logout
+                            </button>
+                        </div>
                     </div>
 
                     {/* Balance Card */}
