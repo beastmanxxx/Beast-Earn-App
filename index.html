@@ -1046,10 +1046,10 @@
 
                 if (selectedColor === 'Green' && (result.color === 'green' || result.color === 'green-violet')) {
                     won = true;
-                    multiplier = result.result === 5 ? 4.5 : 1;
+                    multiplier = result.result === 5 ? 4.5 : 1.96;
                 } else if (selectedColor === 'Red' && (result.color === 'red' || result.color === 'red-violet')) {
                     won = true;
-                    multiplier = result.result === 0 ? 4.5 : 1;
+                    multiplier = result.result === 0 ? 4.5 : 1.96;
                 } else if (selectedColor === 'Violet' && (result.color === 'red-violet' || result.color === 'green-violet')) {
                     won = true;
                     multiplier = 4.5;
@@ -1058,10 +1058,10 @@
                     multiplier = 9;
                 } else if (selectedColor === 'Big' && result.size === 'Big') {
                     won = true;
-                    multiplier = 1;
+                    multiplier = 1.96;
                 } else if (selectedColor === 'Small' && result.size === 'Small') {
                     won = true;
-                    multiplier = 1;
+                    multiplier = 1.96;
                 }
 
                 if (won) {
@@ -1074,7 +1074,6 @@
                         message: '🎉 Congratulations! You Won! 🎉'
                     });
                 } else {
-                    setBalance(prev => prev - betAmount);
                     setVictoryMessage({
                         type: 'loss',
                         amount: betAmount,
@@ -1109,7 +1108,10 @@
                     }
                     return;
                 }
-                setBetAmount(finalBetAmount); // Ensure betAmount state reflects the actual bet
+
+                // Deduct bet amount immediately
+                setBalance(prev => prev - finalBetAmount);
+                setBetAmount(finalBetAmount);
                 setSelectedColor(selection);
                 setGameState('running');
                 setTimeLeft(12);
