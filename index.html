@@ -475,7 +475,7 @@
                     onError(); // Play error sound for invalid file type
                     setMessage({ 
                         type: 'error', 
-                        text: '⚠️ Screenshot is incorrect submit valid screenshot.' 
+                        text: '⚠️ Please upload a valid screenshot image.' 
                     });
                     return false;
                 }
@@ -483,14 +483,14 @@
                 // Get the file's last modified time
                 const fileTime = new Date(file.lastModified);
                 const currentTime = new Date();
-                const timeDifference = (currentTime - fileTime) / 1000 / 60; // Convert to minutes
+                const timeDifference = (currentTime - fileTime) / 1000; // Convert to seconds
 
-                // Check if the image is less than 2 minutes old
-                if (timeDifference > 2) {
+                // Check if the image is less than 1 minute old
+                if (timeDifference > 60) {
                     onError(); // Play error sound for old image
                     setMessage({ 
                         type: 'error', 
-                        text: '⚠️ Screenshot is incorrect submit valid screenshot.' 
+                        text: `⚠️ Screenshot is too old (${Math.floor(timeDifference)} seconds). Please take a fresh screenshot within 1 minute.` 
                     });
                     return false;
                 }
@@ -562,7 +562,7 @@
                     onError(); // Play error sound for non-phone image
                     setMessage({ 
                         type: 'error', 
-                        text: '⚠️ Screenshot is incorrect submit valid screenshot.' 
+                        text: '⚠️ Please take a fresh screenshot from your phone. Downloaded or saved images are not accepted.' 
                     });
                     return false;
                 }
@@ -571,7 +571,7 @@
                     onError(); // Play error sound for downloaded image
                     setMessage({ 
                         type: 'error', 
-                        text: '⚠️ Screenshot is incorrect submit valid screenshot.' 
+                        text: '⚠️ Downloaded or saved images are not accepted. Please take a fresh screenshot.' 
                     });
                     return false;
                 }
@@ -590,7 +590,7 @@
                         setPaymentScreenshot(null);
                         setMessage({ 
                             type: 'error', 
-                            text: '⚠️ WARNING: Please upload a valid payment screenshot. Submitting incorrect screenshots may result in account blocking. Your account security is important to us.' 
+                            text: '⚠️ WARNING: Please upload a valid payment screenshot taken within the last minute. Downloaded or saved images are not accepted.' 
                         });
                     }
                 }
