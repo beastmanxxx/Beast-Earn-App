@@ -475,7 +475,7 @@
                     onError(); // Play error sound for invalid file type
                     setMessage({ 
                         type: 'error', 
-                        text: '⚠️ Please upload a valid screenshot image.' 
+                        text: '⚠️ Please upload a valid image file.' 
                     });
                     return false;
                 }
@@ -490,93 +490,12 @@
                     onError(); // Play error sound for old image
                     setMessage({ 
                         type: 'error', 
-                        text: `⚠️ Screenshot is too old (${Math.floor(timeDifference)} seconds). Please take a fresh screenshot within 1 minute.` 
+                        text: `⚠️ Image is too old (${Math.floor(timeDifference)} seconds). Please select an image taken within the last minute.` 
                     });
                     return false;
                 }
 
-                // Check for phone manufacturer specific patterns
-                const fileName = file.name.toLowerCase();
-                const filePath = file.webkitRelativePath || file.name;
-                
-                // Phone manufacturer specific patterns
-                const phonePatterns = [
-                    // Samsung patterns
-                    'samsung', 'galaxy', 'screenshot_', 'sc_', 'screenshot-', 'sc-',
-                    // iPhone patterns
-                    'iphone', 'ios', 'screenshot_', 'photo_', 'img_', 'screenshot-', 'photo-', 'img-',
-                    // Xiaomi patterns
-                    'xiaomi', 'miui', 'screenshot_', 'sc_', 'screenshot-', 'sc-',
-                    // OnePlus patterns
-                    'oneplus', 'screenshot_', 'sc_', 'screenshot-', 'sc-',
-                    // Oppo patterns
-                    'oppo', 'coloros', 'screenshot_', 'sc_', 'screenshot-', 'sc-',
-                    // Vivo patterns
-                    'vivo', 'funtouch', 'screenshot_', 'sc_', 'screenshot-', 'sc-',
-                    // Realme patterns
-                    'realme', 'screenshot_', 'sc_', 'screenshot-', 'sc-',
-                    // Motorola patterns
-                    'motorola', 'screenshot_', 'sc_', 'screenshot-', 'sc-',
-                    // Google Pixel patterns
-                    'pixel', 'screenshot_', 'sc_', 'screenshot-', 'sc-',
-                    // Common phone screenshot patterns
-                    'screenshot', 'screen', 'capture', 'cap', 'shot'
-                ];
-
-                // Patterns that indicate downloaded or saved images
-                const downloadedPatterns = [
-                    // Download related
-                    'download', 'downloaded', 'saved', 'save', 'saves',
-                    // Common app patterns
-                    'whatsapp', 'telegram', 'messenger', 'facebook', 'instagram',
-                    'twitter', 'linkedin', 'pinterest', 'reddit', 'tiktok',
-                    // File system patterns
-                    'desktop', 'documents', 'pictures', 'photos', 'images',
-                    // Common suffixes
-                    '_img', '_image', '_photo', '_picture',
-                    // Common prefixes
-                    'img', 'image', 'photo', 'picture',
-                    // Common download-related words
-                    'copy', 'copied', 'duplicate', 'duplicated'
-                ];
-
-                // Check if the file is from a phone
-                const isFromPhone = phonePatterns.some(pattern => 
-                    fileName.includes(pattern) || 
-                    filePath.toLowerCase().includes(pattern)
-                );
-
-                // Check if the file appears to be downloaded
-                const isDownloaded = downloadedPatterns.some(pattern => 
-                    fileName.includes(pattern) || 
-                    filePath.toLowerCase().includes(pattern)
-                ) || 
-                // Check for common file size patterns (too small or too large for a screenshot)
-                file.size < 10000 || // Less than 10KB
-                file.size > 10000000 || // More than 10MB
-                // Check for common image dimensions (if available)
-                (file.width && (file.width < 200 || file.width > 4000)) ||
-                (file.height && (file.height < 200 || file.height > 4000));
-
-                if (!isFromPhone) {
-                    onError(); // Play error sound for non-phone image
-                    setMessage({ 
-                        type: 'error', 
-                        text: '⚠️ Please take a fresh screenshot from your phone. Downloaded or saved images are not accepted.' 
-                    });
-                    return false;
-                }
-
-                if (isDownloaded) {
-                    onError(); // Play error sound for downloaded image
-                    setMessage({ 
-                        type: 'error', 
-                        text: '⚠️ Downloaded or saved images are not accepted. Please take a fresh screenshot.' 
-                    });
-                    return false;
-                }
-
-                // Accept the image if it's from a phone, not downloaded, and recent
+                // Accept the image if it's recent and valid
                 return true;
             };
 
@@ -585,12 +504,12 @@
                 if (file) {
                     if (isScreenshot(file)) {
                         setPaymentScreenshot(file);
-                        setMessage({ type: 'success', text: 'Screenshot uploaded successfully!' });
+                        setMessage({ type: 'success', text: 'Image uploaded successfully!' });
                     } else {
                         setPaymentScreenshot(null);
                         setMessage({ 
                             type: 'error', 
-                            text: '⚠️ WARNING: Please upload a valid payment screenshot taken within the last minute. Downloaded or saved images are not accepted.' 
+                            text: '⚠️ WARNING: Please select an image taken within the last minute.' 
                         });
                     }
                 }
