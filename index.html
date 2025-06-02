@@ -1979,7 +1979,27 @@
             });
         };
 
-        ReactDOM.render(<App />, document.getElementById('root'));
+        // Preloader function
+        const showPreloader = async () => {
+            const loaderRoot = document.createElement('div');
+            loaderRoot.id = 'loader-root';
+            document.body.appendChild(loaderRoot);
+            
+            ReactDOM.render(<Loader />, loaderRoot);
+            
+            // Wait for 2 seconds
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            // Remove loader
+            ReactDOM.unmountComponentAtNode(loaderRoot);
+            document.body.removeChild(loaderRoot);
+            
+            // Render the main app
+            ReactDOM.render(<App />, document.getElementById('root'));
+        };
+
+        // Start the app with preloader
+        showPreloader();
     </script>
 </body>
 </html>
