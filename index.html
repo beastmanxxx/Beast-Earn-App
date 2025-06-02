@@ -723,16 +723,15 @@
                             id="payment-screenshot"
                             type="file"
                             accept="image/*"
-                            capture="environment"
                             onChange={handleFileChange}
                             className="w-full text-sm text-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-yellow-400 file:text-red-800 hover:file:bg-yellow-500 mb-4"
                             onClick={(e) => {
                                 if (navigator.userAgent.match(/Android|iPhone|iPad|iPod/i)) {
-                                    // For mobile devices, create a new input that uses media picker
+                                    // For mobile devices, create a new input that shows file manager options
                                     const input = document.createElement('input');
                                     input.type = 'file';
                                     input.accept = 'image/*';
-                                    input.capture = 'environment';
+                                    // Remove capture attribute to show file manager options
                                     input.onchange = handleFileChange;
                                     input.click();
                                     e.preventDefault();
