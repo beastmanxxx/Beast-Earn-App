@@ -1642,6 +1642,20 @@
 
         // --- Game Selection Page ---
         const GameSelectionPage = ({ balance, navigateTo, handleLogout }) => {
+            const [showMessage, setShowMessage] = React.useState(false);
+            const [messageText, setMessageText] = React.useState('');
+
+            const handleGameClick = (gameType) => {
+                if (balance < 10) {
+                    setMessageText(`Your balance is ₹${balance.toFixed(2)}. Deposit or keep at least ₹10 in your balance to enter the game.`);
+                    setShowMessage(true);
+                    // Hide message after 3 seconds
+                    setTimeout(() => setShowMessage(false), 3000);
+                } else {
+                    navigateTo(gameType);
+                }
+            };
+
             return (
                 <div className="max-w-md mx-auto bg-gradient-to-b from-orange-400 to-red-600 min-h-screen text-white p-4">
                     {/* Header */}
@@ -1685,10 +1699,17 @@
 
                     <h2 className="text-2xl font-bold text-center mb-6">Select a Game</h2>
 
+                    {/* Message Component */}
+                    {showMessage && (
+                        <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-yellow-400 text-gray-900 px-6 py-4 rounded-lg shadow-lg z-50 text-center max-w-[90%]">
+                            {messageText}
+                        </div>
+                    )}
+
                     <div className="grid grid-cols-1 gap-4 px-4">
                         <div
                             className="bg-white bg-opacity-10 rounded-lg p-6 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-opacity-20 transition-all"
-                            onClick={() => navigateTo('colorPrediction')}
+                            onClick={() => handleGameClick('colorPrediction')}
                         >
                             {/* Custom image for Color Prediction, made circular */}
                             <img src="color.png" alt="Color Prediction Game Icon" className="w-24 h-24 rounded-full object-cover mb-4" onError={(e)=>{e.target.onerror = null; e.target.src='https://placehold.co/96x96/FFD700/000000?text=Color'}} />
@@ -1699,7 +1720,7 @@
                         {/* New Mines Game Option with custom image */}
                         <div
                             className="bg-white bg-opacity-10 rounded-lg p-6 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-opacity-20 transition-all"
-                            onClick={() => navigateTo('mines')}
+                            onClick={() => handleGameClick('mines')}
                         >
                             {/* Custom image for Mines Game, made circular */}
                             <img src="mine.png" alt="Mines Game Icon" className="w-24 h-24 rounded-full object-cover mb-4" onError={(e)=>{e.target.onerror = null; e.target.src='https://placehold.co/96x96/FFD700/000000?text=Mine'}} />
