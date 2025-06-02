@@ -290,6 +290,34 @@
                 }
             };
 
+            const handleGoogleLogin = async () => {
+                setError('');
+                showLoader();
+                try {
+                    const provider = new firebase.auth.GoogleAuthProvider();
+                    const result = await auth.signInWithPopup(provider);
+                    
+                    // Check if this is a new user
+                    const userDoc = await db.collection('users').doc(result.user.uid).get();
+                    
+                    if (!userDoc.exists) {
+                        // Create initial user document for new Google users
+                        await db.collection('users').doc(result.user.uid).set({
+                            email: result.user.email,
+                            balance: 0,
+                            gameHistory: [],
+                            depositHistory: [],
+                            withdrawHistory: [],
+                            createdAt: new Date().toISOString()
+                        });
+                    }
+                    
+                    setAuthenticated(true);
+                } catch (error) {
+                    setError(error.message);
+                }
+            };
+
             return (
                 <div className="max-w-md mx-auto bg-gradient-to-b from-orange-400 to-red-600 min-h-screen text-white flex flex-col items-center justify-center p-4">
                     <GuideButton audioFile="auth.mp3" />
@@ -325,6 +353,18 @@
                             className="w-full bg-yellow-400 py-3 rounded-lg font-bold text-red-800 hover:bg-yellow-500 transition-colors mb-4"
                         >
                             Login
+                        </button>
+                        <div className="relative flex items-center justify-center mb-4">
+                            <div className="border-t border-white border-opacity-30 w-full"></div>
+                            <span className="bg-white bg-opacity-20 px-4 text-sm">OR</span>
+                            <div className="border-t border-white border-opacity-30 w-full"></div>
+                        </div>
+                        <button
+                            onClick={handleGoogleLogin}
+                            className="w-full bg-white py-3 rounded-lg font-bold text-gray-800 hover:bg-gray-100 transition-colors mb-4 flex items-center justify-center"
+                        >
+                            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-6 h-6 mr-2" />
+                            Continue with Google
                         </button>
                         <p className="text-center text-sm opacity-80">
                             Don't have an account? <button onClick={navigateToRegister} className="text-yellow-300 font-semibold hover:underline">Register here</button>
