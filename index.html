@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Beast Earn - Color Prediction</title>
 
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#ef4444">
+    <meta name="description" content="Beast Earn - Play Color Prediction and Mine games to win real money!">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="logo.avif">
+
     <!-- Favicon -->
     <link rel="icon" href="logo.avif" type="image/avif">
 
@@ -1805,7 +1811,7 @@
                         </div>
                     )}
 
-                    <div className="grid grid-cols-1 gap-4 px-4">
+                    <div className="grid grid-cols-1 gap-4 px-4 mb-20"> {/* Added mb-20 for bottom margin */}
                         <div
                             className="bg-white bg-opacity-10 rounded-lg p-6 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-opacity-20 transition-all"
                             onClick={() => handleGameClick('colorPrediction')}
@@ -1827,6 +1833,72 @@
                             <p className="text-sm opacity-80">Uncover treasures, avoid mines!</p>
                         </div>
                     </div>
+
+                    {/* App Download and Share App Buttons */}
+                    <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-red-600 to-transparent z-50">
+                        <div className="max-w-md mx-auto flex gap-4">
+                            <button
+                                onClick={() => {
+                                    if ('standalone' in navigator && !navigator.standalone) {
+                                        // Show install prompt for iOS
+                                        alert('To install the app on your device:\n1. Tap the Share button\n2. Scroll down and tap "Add to Home Screen"');
+                                    } else if (window.matchMedia('(display-mode: standalone)').matches) {
+                                        alert('App is already installed!');
+                                    } else {
+                                        // For Android Chrome
+                                        if (window.deferredPrompt) {
+                                            window.deferredPrompt.prompt();
+                                            window.deferredPrompt.userChoice.then((choiceResult) => {
+                                                if (choiceResult.outcome === 'accepted') {
+                                                    console.log('User accepted the install prompt');
+                                                    // Show success message
+                                                    const successMessage = document.createElement('div');
+                                                    successMessage.className = 'fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 text-center';
+                                                    successMessage.textContent = 'App installed in your device!';
+                                                    document.body.appendChild(successMessage);
+                                                    
+                                                    // Remove message after 3 seconds
+                                                    setTimeout(() => {
+                                                        document.body.removeChild(successMessage);
+                                                    }, 3000);
+                                                }
+                                                window.deferredPrompt = null;
+                                            });
+                                        } else {
+                                            // If prompt is not available, show instructions
+                                            alert('To install the app:\n1. Open this website in Chrome\n2. Tap the menu (three dots)\n3. Select "Install app" or "Add to Home screen"');
+                                        }
+                                    }
+                                }}
+                                className="flex-1 bg-yellow-400 text-gray-900 py-3 rounded-lg font-bold hover:bg-yellow-500 transition-colors"
+                            >
+                                App Download
+                            </button>
+                            <button
+                                onClick={() => {
+                                    if (navigator.share) {
+                                        navigator.share({
+                                            title: 'Beast Earn App',
+                                            text: 'Check out this amazing gaming app!',
+                                            url: 'https://beastmanxxx.github.io/Beast-Earn-App/'
+                                        }).catch(console.error);
+                                    } else {
+                                        // Fallback for browsers that don't support Web Share API
+                                        const dummy = document.createElement('input');
+                                        document.body.appendChild(dummy);
+                                        dummy.value = 'https://beastmanxxx.github.io/Beast-Earn-App/';
+                                        dummy.select();
+                                        document.execCommand('copy');
+                                        document.body.removeChild(dummy);
+                                        alert('Link copied to clipboard! Share it with your friends.');
+                                    }
+                                }}
+                                className="flex-1 bg-green-500 py-3 rounded-lg font-bold hover:bg-green-600 transition-colors"
+                            >
+                                Share App
+                            </button>
+                        </div>
+                    </div>
                 </div>
             );
         };
@@ -1835,6 +1907,24 @@
         const App = () => {
             const [authenticated, setAuthenticated] = React.useState(false);
             const [currentPage, setCurrentPage] = React.useState('login');
+            const [showInstallMessage, setShowInstallMessage] = React.useState(false);
+
+            // Handle PWA installation
+            React.useEffect(() => {
+                let deferredPrompt;
+                window.addEventListener('beforeinstallprompt', (e) => {
+                    e.preventDefault();
+                    deferredPrompt = e;
+                    window.deferredPrompt = deferredPrompt;
+                });
+
+                window.addEventListener('appinstalled', () => {
+                    setShowInstallMessage(true);
+                    setTimeout(() => {
+                        setShowInstallMessage(false);
+                    }, 3000);
+                });
+            }, []);
 
             const navigateTo = async (page) => {
                 await showLoader();
@@ -2065,6 +2155,24 @@
 
         // Start the app with preloader
         showPreloader();
+
+        // Register service worker for PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').then(registration => {
+                    console.log('ServiceWorker registration successful');
+                }).catch(err => {
+                    console.log('ServiceWorker registration failed: ', err);
+                });
+            });
+        }
+
+        // Handle PWA installation prompt
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+        });
     </script>
 </body>
 </html>
