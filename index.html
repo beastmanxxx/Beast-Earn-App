@@ -1753,7 +1753,7 @@
             const [messageText, setMessageText] = React.useState('');
 
             const handleGameClick = (gameType) => {
-                if (balance < 10) {
+                if (balance < 1) {
                     setMessageText(`Your balance is ₹${balance.toFixed(2)}. Deposit or keep at least ₹10 in your balance to enter the game.`);
                     setShowMessage(true);
                     // Hide message after 3 seconds
