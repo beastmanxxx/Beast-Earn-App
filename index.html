@@ -1934,24 +1934,25 @@
             // Handle back button press
             React.useEffect(() => {
                 const handleBackButton = (event) => {
-                    if (navigationHistory.length > 1) {
+                    if (currentPage !== 'gameSelection') {
                         event.preventDefault();
-                        const newHistory = [...navigationHistory];
-                        newHistory.pop(); // Remove current page
-                        const previousPage = newHistory[newHistory.length - 1];
-                        setNavigationHistory(newHistory);
-                        setCurrentPage(previousPage);
+                        setCurrentPage('gameSelection');
+                        setNavigationHistory(['login', 'gameSelection']);
                     }
                 };
 
                 window.addEventListener('popstate', handleBackButton);
                 return () => window.removeEventListener('popstate', handleBackButton);
-            }, [navigationHistory]);
+            }, [currentPage]);
 
             const navigateTo = async (page) => {
                 await showLoader();
                 setCurrentPage(page);
-                setNavigationHistory(prev => [...prev, page]);
+                if (page === 'gameSelection') {
+                    setNavigationHistory(['login', 'gameSelection']);
+                } else {
+                    setNavigationHistory(['login', 'gameSelection', page]);
+                }
             };
 
             const [historyInitialTab, setHistoryInitialTab] = React.useState('game');
