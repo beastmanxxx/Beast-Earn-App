@@ -1912,7 +1912,6 @@
             const [authenticated, setAuthenticated] = React.useState(false);
             const [currentPage, setCurrentPage] = React.useState('login');
             const [showInstallMessage, setShowInstallMessage] = React.useState(false);
-            const [navigationHistory, setNavigationHistory] = React.useState(['login']);
 
             // Handle PWA installation
             React.useEffect(() => {
@@ -1931,28 +1930,9 @@
                 });
             }, []);
 
-            // Handle back button press
-            React.useEffect(() => {
-                const handleBackButton = (event) => {
-                    if (currentPage !== 'gameSelection') {
-                        event.preventDefault();
-                        setCurrentPage('gameSelection');
-                        setNavigationHistory(['login', 'gameSelection']);
-                    }
-                };
-
-                window.addEventListener('popstate', handleBackButton);
-                return () => window.removeEventListener('popstate', handleBackButton);
-            }, [currentPage]);
-
             const navigateTo = async (page) => {
                 await showLoader();
                 setCurrentPage(page);
-                if (page === 'gameSelection') {
-                    setNavigationHistory(['login', 'gameSelection']);
-                } else {
-                    setNavigationHistory(['login', 'gameSelection', page]);
-                }
             };
 
             const [historyInitialTab, setHistoryInitialTab] = React.useState('game');
