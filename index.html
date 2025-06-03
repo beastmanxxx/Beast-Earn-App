@@ -1837,43 +1837,47 @@
                     {/* App Download and Share App Buttons */}
                     <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-red-600 to-transparent z-50">
                         <div className="max-w-md mx-auto flex gap-4">
-                            <button
-                                onClick={() => {
-                                    if ('standalone' in navigator && !navigator.standalone) {
-                                        // Show install prompt for iOS
-                                        alert('To install the app on your device:\n1. Tap the Share button\n2. Scroll down and tap "Add to Home Screen"');
-                                    } else if (window.matchMedia('(display-mode: standalone)').matches) {
-                                        alert('App is already installed!');
-                                    } else {
-                                        // For Android Chrome
-                                        if (window.deferredPrompt) {
-                                            window.deferredPrompt.prompt();
-                                            window.deferredPrompt.userChoice.then((choiceResult) => {
-                                                if (choiceResult.outcome === 'accepted') {
-                                                    console.log('User accepted the install prompt');
-                                                    // Show success message
-                                                    const successMessage = document.createElement('div');
-                                                    successMessage.className = 'fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 text-center';
-                                                    successMessage.textContent = 'App installed in your device!';
-                                                    document.body.appendChild(successMessage);
-                                                    
-                                                    // Remove message after 3 seconds
-                                                    setTimeout(() => {
-                                                        document.body.removeChild(successMessage);
-                                                    }, 3000);
-                                                }
-                                                window.deferredPrompt = null;
-                                            });
+                            {/* App Download Button - Only visible on mobile */}
+                            <div className="flex-1 md:hidden">
+                                <button
+                                    onClick={() => {
+                                        if (window.matchMedia('(display-mode: standalone)').matches) {
+                                            // App is already installed
+                                            const message = document.createElement('div');
+                                            message.className = 'fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-yellow-400 text-gray-900 px-6 py-3 rounded-lg shadow-lg z-50 text-center';
+                                            message.textContent = 'App is already installed!';
+                                            document.body.appendChild(message);
+                                            setTimeout(() => document.body.removeChild(message), 3000);
+                                        } else if ('standalone' in navigator && !navigator.standalone) {
+                                            // iOS device
+                                            alert('To install the app on your device:\n1. Tap the Share button\n2. Scroll down and tap "Add to Home Screen"');
                                         } else {
-                                            // If prompt is not available, show instructions
-                                            alert('To install the app:\n1. Open this website in Chrome\n2. Tap the menu (three dots)\n3. Select "Install app" or "Add to Home screen"');
+                                            // Android Chrome
+                                            if (window.deferredPrompt) {
+                                                window.deferredPrompt.prompt();
+                                                window.deferredPrompt.userChoice.then((choiceResult) => {
+                                                    if (choiceResult.outcome === 'accepted') {
+                                                        // Show success message
+                                                        const successMessage = document.createElement('div');
+                                                        successMessage.className = 'fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 text-center';
+                                                        successMessage.textContent = 'App installed in your device!';
+                                                        document.body.appendChild(successMessage);
+                                                        setTimeout(() => document.body.removeChild(successMessage), 3000);
+                                                    }
+                                                    window.deferredPrompt = null;
+                                                });
+                                            } else {
+                                                // If prompt is not available, show instructions
+                                                alert('To install the app:\n1. Open this website in Chrome\n2. Tap the menu (three dots)\n3. Select "Install app" or "Add to Home screen"');
+                                            }
                                         }
-                                    }
-                                }}
-                                className="flex-1 bg-yellow-400 text-gray-900 py-3 rounded-lg font-bold hover:bg-yellow-500 transition-colors"
-                            >
-                                App Download
-                            </button>
+                                    }}
+                                    className="w-full bg-yellow-400 text-gray-900 py-3 rounded-lg font-bold hover:bg-yellow-500 transition-colors"
+                                >
+                                    App Download
+                                </button>
+                            </div>
+                            {/* Share App Button - Always visible */}
                             <button
                                 onClick={() => {
                                     if (navigator.share) {
@@ -1893,7 +1897,7 @@
                                         alert('Link copied to clipboard! Share it with your friends.');
                                     }
                                 }}
-                                className="flex-1 bg-green-500 py-3 rounded-lg font-bold hover:bg-green-600 transition-colors"
+                                className={`${window.matchMedia('(min-width: 768px)').matches ? 'w-full' : 'flex-1'} bg-green-500 py-3 rounded-lg font-bold hover:bg-green-600 transition-colors`}
                             >
                                 Share App
                             </button>
