@@ -712,7 +712,7 @@
                 }
                 if (!paymentScreenshot) {
                     onError(); // Play error sound for missing screenshot
-                    setMessage({ type: 'error', text: 'Please upload a payment screenshot.' });
+                    setMessage({ type: 'error', text: 'Please upload a valid payment screenshot.' });
                     return;
                 }
                 if (!isScreenshot(paymentScreenshot)) {
