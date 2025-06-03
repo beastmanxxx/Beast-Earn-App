@@ -611,12 +611,13 @@
             const [utrNumber, setUtrNumber] = React.useState('');
             const [paymentScreenshot, setPaymentScreenshot] = React.useState(null);
             const [message, setMessage] = React.useState(null);
+            const [lastUploadTime, setLastUploadTime] = React.useState(null);
             const upiId = "8979873681@mbk";
             const upiQrCodeUrl = "qr.png";
 
             const MIN_DEPOSIT_AMOUNT = 10;
 
-            // Function to check if the uploaded file is a screenshot
+            // Function to check if the uploaded file is a valid screenshot
             const isScreenshot = (file) => {
                 // Check file type - only accept PNG
                 if (file.type !== 'image/png') {
@@ -633,17 +634,29 @@
                 const currentTime = new Date();
                 const timeDifference = (currentTime - fileTime) / 1000; // Convert to seconds
 
-                // Check if the image is less than 55 seconds old
-                if (timeDifference > 55) {
+                // Check if the image is less than 50 seconds old
+                if (timeDifference > 50) {
                     onError(); // Play error sound for old image
                     setMessage({ 
                         type: 'error', 
-                        text: `⚠️ Image is too old (${Math.floor(timeDifference)} seconds). Please select an image taken within the last 55 seconds.` 
+                        text: `⚠️ Image is too old (${Math.floor(timeDifference)} seconds). Please select an image taken within the last 50 seconds.` 
                     });
                     return false;
                 }
 
-                // Accept the image if it's recent and valid
+                // Check if the image date matches current date
+                if (fileTime.getDate() !== currentTime.getDate() || 
+                    fileTime.getMonth() !== currentTime.getMonth() || 
+                    fileTime.getFullYear() !== currentTime.getFullYear()) {
+                    onError(); // Play error sound for wrong date
+                    setMessage({ 
+                        type: 'error', 
+                        text: '⚠️ Please upload an image taken today.' 
+                    });
+                    return false;
+                }
+
+                // Accept the image if it's valid
                 return true;
             };
 
@@ -655,10 +668,6 @@
                         setMessage({ type: 'success', text: 'Image uploaded successfully!' });
                     } else {
                         setPaymentScreenshot(null);
-                        setMessage({ 
-                            type: 'error', 
-                            text: '⚠️ WARNING: Please select an image taken within the last 55 seconds.' 
-                        });
                     }
                 }
             };
