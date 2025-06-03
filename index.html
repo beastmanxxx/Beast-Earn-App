@@ -618,12 +618,12 @@
 
             // Function to check if the uploaded file is a screenshot
             const isScreenshot = (file) => {
-                // Check file type - accept any image file
-                if (!file.type.startsWith('image/')) {
+                // Check file type - only accept PNG
+                if (file.type !== 'image/png') {
                     onError(); // Play error sound for invalid file type
                     setMessage({ 
                         type: 'error', 
-                        text: '⚠️ Please upload a valid image file.' 
+                        text: '⚠️ Please upload a PNG image file only.' 
                     });
                     return false;
                 }
@@ -633,12 +633,12 @@
                 const currentTime = new Date();
                 const timeDifference = (currentTime - fileTime) / 1000; // Convert to seconds
 
-                // Check if the image is less than 1 minute old
-                if (timeDifference > 60) {
+                // Check if the image is less than 55 seconds old
+                if (timeDifference > 55) {
                     onError(); // Play error sound for old image
                     setMessage({ 
                         type: 'error', 
-                        text: `⚠️ Image is too old (${Math.floor(timeDifference)} seconds). Please select an image taken within the last minute.` 
+                        text: `⚠️ Image is too old (${Math.floor(timeDifference)} seconds). Please select an image taken within the last 55 seconds.` 
                     });
                     return false;
                 }
@@ -657,7 +657,7 @@
                         setPaymentScreenshot(null);
                         setMessage({ 
                             type: 'error', 
-                            text: '⚠️ WARNING: Please select an image taken within the last minute.' 
+                            text: '⚠️ WARNING: Please select an image taken within the last 55 seconds.' 
                         });
                     }
                 }
@@ -790,7 +790,7 @@
                         <input
                             id="payment-screenshot"
                             type="file"
-                            accept="image/*"
+                            accept="image/png"
                             onChange={handleFileChange}
                             className="w-full text-sm text-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-yellow-400 file:text-red-800 hover:file:bg-yellow-500 mb-4"
                             onClick={(e) => {
@@ -798,7 +798,7 @@
                                     // For mobile devices, create a new input that shows file manager options
                                     const input = document.createElement('input');
                                     input.type = 'file';
-                                    input.accept = 'image/*';
+                                    input.accept = 'image/png';
                                     // Remove capture attribute to show file manager options
                                     input.onchange = handleFileChange;
                                     input.click();
@@ -838,6 +838,7 @@
                             <li>Complete the payment using your preferred UPI app to the UPI ID: <span className="font-bold text-yellow-300">{upiId}</span></li>
                             <li>**IMPORTANT**: After successful payment, take a screenshot of your payment confirmation.</li>
                             <li>Enter the **Amount** you paid, the **UTR/Transaction ID** from your UPI app, and **Upload the Payment Screenshot**.</li>
+                            <li>**Note**: Only PNG images taken within the last 55 seconds are accepted.</li>
                             <li>Click **"Confirm Payment (I have Paid)"** to add the amount to your balance.</li>
                             <li>Your balance will update immediately after all required information is submitted.</li>
                             <li>Minimum deposit amount is ₹{MIN_DEPOSIT_AMOUNT}.</li>
