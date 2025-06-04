@@ -503,11 +503,11 @@
                                 ) : (
                                     <div className="space-y-3 max-h-96 overflow-y-auto">
                                         {withdrawHistory.map((withdraw, index) => {
-                                            // Calculate if 20 seconds have passed since withdrawal
+                                            // Calculate if 10 hours have passed since withdrawal
                                             const withdrawTime = new Date(withdraw.timestamp);
                                             const currentTime = new Date();
-                                            const timeDiff = (currentTime - withdrawTime) / 1000; // Convert to seconds
-                                            const isCompleted = timeDiff >= 20;
+                                            const timeDiff = (currentTime - withdrawTime) / (1000 * 60 * 60); // Convert to hours
+                                            const isCompleted = timeDiff >= 10;
 
                                             return (
                                                 <div key={index} className="flex items-center justify-between bg-white bg-opacity-10 rounded-lg p-3">
