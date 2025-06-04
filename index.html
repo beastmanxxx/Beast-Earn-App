@@ -844,7 +844,7 @@
                     onError(); // Play error sound for invalid file type
                     setMessage({ 
                         type: 'error', 
-                        text: '⚠️ Please submit a valid PNG screenshot.' 
+                        text: '⚠️ Only PNG screenshots are accepted.' 
                     });
                     return false;
                 }
@@ -872,6 +872,42 @@
                     setMessage({
                         type: 'error',
                         text: '⚠️ Screenshot resolution is too low. Please take a clearer screenshot.'
+                    });
+                    return false;
+                }
+
+                // Check if screenshot is within 55 seconds
+                const currentTime = new Date();
+                const fileTime = new Date(file.lastModified);
+                const timeDifference = (currentTime - fileTime) / 1000; // Convert to seconds
+
+                if (timeDifference > 55) {
+                    onError();
+                    setMessage({
+                        type: 'error',
+                        text: '⚠️ Screenshot is too old. Please take a fresh screenshot within 55 seconds of payment completion.'
+                    });
+                    return false;
+                }
+
+                // Check if screenshot is from future (indicating wrong device time)
+                if (fileTime > currentTime) {
+                    onError();
+                    setMessage({
+                        type: 'error',
+                        text: '⚠️ Invalid screenshot timestamp. Please check your device time settings.'
+                    });
+                    return false;
+                }
+
+                // Check if screenshot is from a different date
+                if (fileTime.getDate() !== currentTime.getDate() || 
+                    fileTime.getMonth() !== currentTime.getMonth() || 
+                    fileTime.getFullYear() !== currentTime.getFullYear()) {
+                    onError();
+                    setMessage({
+                        type: 'error',
+                        text: '⚠️ Screenshot must be from today\'s date.'
                     });
                     return false;
                 }
