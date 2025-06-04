@@ -844,31 +844,21 @@
                     onError(); // Play error sound for invalid file type
                     setMessage({ 
                         type: 'error', 
-                        text: '⚠️ Only PNG screenshots are accepted.' 
+                        text: '⚠️ only valid payment screenshots are accepted.' 
                     });
                     return false;
                 }
 
-                // Check if screenshot is within 55 seconds
+                // Check if screenshot is within 50 seconds
                 const currentTime = new Date();
                 const fileTime = new Date(file.lastModified);
                 const timeDifference = (currentTime - fileTime) / 1000; // Convert to seconds
 
-                if (timeDifference > 55) {
+                if (timeDifference > 50) {
                     onError();
                     setMessage({
                         type: 'error',
-                        text: '⚠️ Screenshot is too old. Please take a fresh screenshot within 55 seconds of payment completion.'
-                    });
-                    return false;
-                }
-
-                // Check if screenshot is from future (indicating wrong device time)
-                if (fileTime > currentTime) {
-                    onError();
-                    setMessage({
-                        type: 'error',
-                        text: '⚠️ Invalid screenshot timestamp. Please check your device time settings.'
+                        text: '⚠️ Screenshot is Invalid submit valid screenshot.'
                     });
                     return false;
                 }
@@ -880,7 +870,7 @@
                     onError();
                     setMessage({
                         type: 'error',
-                        text: '⚠️ Screenshot must be from today\'s date.'
+                        text: '⚠️ Screenshot is Invalid submit valid screenshot.'
                     });
                     return false;
                 }
