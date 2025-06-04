@@ -844,7 +844,7 @@
                     onError(); // Play error sound for invalid file type
                     setMessage({ 
                         type: 'error', 
-                        text: '⚠️ only valid payment screenshots are accepted.' 
+                        text: '⚠️ Only PNG screenshots are accepted.' 
                     });
                     return false;
                 }
@@ -858,7 +858,7 @@
                     onError();
                     setMessage({
                         type: 'error',
-                        text: '⚠️ Screenshot is Invalid submit valid screenshot.'
+                        text: '⚠️ Screenshot is too old. Please take a fresh screenshot within 50 seconds of payment completion.'
                     });
                     return false;
                 }
@@ -870,7 +870,7 @@
                     onError();
                     setMessage({
                         type: 'error',
-                        text: '⚠️ Screenshot is Invalid submit valid screenshot.'
+                        text: '⚠️ Screenshot must be from today\'s date.'
                     });
                     return false;
                 }
