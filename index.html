@@ -560,6 +560,11 @@
             const verifyPaymentScreenshot = async (file) => {
                 setIsVerifying(true);
                 try {
+                    // Check file size (max 5MB)
+                    if (file.size > 5 * 1024 * 1024) {
+                        throw new Error('Screenshot size should be less than 5MB. Please compress the image if needed.');
+                    }
+
                     // Create a canvas to process the image
                     const img = new Image();
                     const canvas = document.createElement('canvas');
@@ -572,6 +577,11 @@
                         img.src = URL.createObjectURL(file);
                     });
 
+                    // Check image dimensions (must be reasonable for a screenshot)
+                    if (img.width < 200 || img.height < 200 || img.width > 4000 || img.height > 4000) {
+                        throw new Error('Invalid screenshot dimensions. Please take a proper screenshot of your payment confirmation.');
+                    }
+
                     // Set canvas size to match image
                     canvas.width = img.width;
                     canvas.height = img.height;
@@ -579,8 +589,14 @@
                     // Draw image on canvas
                     ctx.drawImage(img, 0, 0);
 
-                    // Enhance image for better OCR
+                    // Check for screenshot indicators
                     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const hasScreenshotIndicators = checkScreenshotIndicators(imageData);
+                    if (!hasScreenshotIndicators) {
+                        throw new Error('This doesn\'t appear to be a valid screenshot. Please take a proper screenshot of your payment confirmation.');
+                    }
+
+                    // Enhance image for better OCR
                     const enhancedData = enhanceImageForOCR(imageData);
                     ctx.putImageData(enhancedData, 0, 0);
 
@@ -609,7 +625,7 @@
 
                     console.log('Extracted text:', text); // For debugging
 
-                    // Verify UPI ID with multiple patterns
+                    // Verify UPI ID with multiple patterns and fuzzy matching
                     const upiPatterns = [
                         upiId.toLowerCase(),
                         upiId.toLowerCase().replace('@', ' @'),
@@ -623,15 +639,26 @@
                         'upi ' + upiId.toLowerCase(),
                         'to ' + upiId.toLowerCase(),
                         'recipient: ' + upiId.toLowerCase(),
-                        'receiver: ' + upiId.toLowerCase()
+                        'receiver: ' + upiId.toLowerCase(),
+                        // Add more variations for common UPI apps
+                        'paytm: ' + upiId.toLowerCase(),
+                        'google pay: ' + upiId.toLowerCase(),
+                        'phonepe: ' + upiId.toLowerCase(),
+                        'amazon pay: ' + upiId.toLowerCase(),
+                        'bhim: ' + upiId.toLowerCase()
                     ];
 
-                    const upiIdFound = upiPatterns.some(pattern => text.includes(pattern));
+                    const upiIdFound = upiPatterns.some(pattern => {
+                        const normalizedPattern = pattern.toLowerCase().replace(/\s+/g, '');
+                        const normalizedText = text.replace(/\s+/g, '');
+                        return normalizedText.includes(normalizedPattern);
+                    });
+
                     if (!upiIdFound) {
-                        throw new Error('UPI ID verification failed. Please make sure the screenshot clearly shows payment to 8979873681@mbk');
+                        throw new Error('UPI ID verification failed. Please make sure the screenshot clearly shows payment to 8979873681@mbk. The UPI ID must be clearly visible in the payment confirmation.');
                     }
 
-                    // Extract amount using multiple patterns
+                    // Extract amount using multiple patterns with enhanced matching
                     const amountPatterns = [
                         /(?:rs\.?|inr|₹)\s*(\d+(?:\.\d{2})?)/i,
                         /amount\s*:?\s*(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d{2})?)/i,
@@ -639,7 +666,9 @@
                         /total\s*:?\s*(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d{2})?)/i,
                         /debit\s*:?\s*(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d{2})?)/i,
                         /sent\s*:?\s*(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d{2})?)/i,
-                        /transfer\s*:?\s*(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d{2})?)/i
+                        /transfer\s*:?\s*(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d{2})?)/i,
+                        // Add more patterns for different UPI apps
+                        /(?:paytm|google pay|phonepe|amazon pay|bhim)\s*(?:amount|paid|total)\s*:?\s*(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d{2})?)/i
                     ];
 
                     let verifiedAmount = null;
@@ -652,14 +681,14 @@
                     }
 
                     if (!verifiedAmount) {
-                        throw new Error('Could not verify payment amount in the screenshot. Please ensure the amount is clearly visible.');
+                        throw new Error('Could not verify payment amount in the screenshot. Please ensure the amount is clearly visible in the payment confirmation.');
                     }
 
                     const userAmount = parseFloat(depositAmount);
 
                     // Verify amount matches with tolerance
                     if (Math.abs(verifiedAmount - userAmount) > 0.01) {
-                        throw new Error(`Payment amount mismatch. Found ₹${verifiedAmount} in screenshot but you selected ₹${userAmount}`);
+                        throw new Error(`Payment amount mismatch. Found ₹${verifiedAmount} in screenshot but you selected ₹${userAmount}. Please ensure you\'re uploading the correct payment confirmation.`);
                     }
 
                     // Enhanced timestamp verification
@@ -669,22 +698,22 @@
 
                     // Check if screenshot is too old
                     if (timeDifference > 60) {
-                        throw new Error('Screenshot is too old. Please take a fresh screenshot within 1 minute of payment.');
+                        throw new Error('Screenshot is too old. Please take a fresh screenshot within 1 minute of payment completion.');
                     }
 
                     // Check if screenshot is from future (indicating wrong device time)
                     if (fileTime > currentTime) {
-                        throw new Error('Invalid screenshot timestamp. Please check your device time settings.');
+                        throw new Error('Invalid screenshot timestamp. Please check your device time settings and try again.');
                     }
 
                     // Check if screenshot is from a different date
                     if (fileTime.getDate() !== currentTime.getDate() || 
                         fileTime.getMonth() !== currentTime.getMonth() || 
                         fileTime.getFullYear() !== currentTime.getFullYear()) {
-                        throw new Error('Screenshot must be from today\'s date.');
+                        throw new Error('Screenshot must be from today\'s date. Please take a fresh screenshot of your payment confirmation.');
                     }
 
-                    // Additional verification for payment status
+                    // Additional verification for payment status with enhanced patterns
                     const successPatterns = [
                         'successful',
                         'success',
@@ -696,12 +725,31 @@
                         'transaction completed',
                         'money sent',
                         'transfer successful',
-                        'transfer completed'
+                        'transfer completed',
+                        // Add more patterns for different UPI apps
+                        'payment done',
+                        'payment processed',
+                        'transaction done',
+                        'transfer done',
+                        'sent successfully',
+                        'paid successfully',
+                        'completed successfully'
                     ];
 
                     const hasSuccessIndicator = successPatterns.some(pattern => text.includes(pattern));
                     if (!hasSuccessIndicator) {
-                        throw new Error('Could not verify successful payment status in the screenshot. Please ensure the payment status is visible.');
+                        throw new Error('Could not verify successful payment status in the screenshot. Please ensure the payment status (successful/completed) is clearly visible in the confirmation.');
+                    }
+
+                    // Check for transaction ID/UTR in the screenshot
+                    const transactionPatterns = [
+                        /(?:transaction|txn|utr|reference)(?:\s*(?:id|number|no|#))?\s*:?\s*([A-Za-z0-9]{8,})/i,
+                        /(?:upi|payment)(?:\s*(?:id|number|no|#))?\s*:?\s*([A-Za-z0-9]{8,})/i
+                    ];
+
+                    const hasTransactionId = transactionPatterns.some(pattern => text.match(pattern));
+                    if (!hasTransactionId) {
+                        throw new Error('Could not find transaction ID/UTR in the screenshot. Please ensure the transaction reference number is visible in the payment confirmation.');
                     }
 
                     return true;
@@ -710,6 +758,65 @@
                 } finally {
                     setIsVerifying(false);
                 }
+            };
+
+            // Function to check for screenshot indicators
+            const checkScreenshotIndicators = (imageData) => {
+                const data = imageData.data;
+                let hasStatusBar = false;
+                let hasTimeIndicator = false;
+                let hasBatteryIndicator = false;
+                let hasSignalIndicator = false;
+
+                // Check for common screenshot indicators
+                for (let i = 0; i < data.length; i += 4) {
+                    // Check for status bar (usually at the top of screenshots)
+                    if (i < imageData.width * 4 * 50) { // Check top 50 pixels
+                        const r = data[i];
+                        const g = data[i + 1];
+                        const b = data[i + 2];
+                        // Status bar usually has specific colors
+                        if (r === 0 && g === 0 && b === 0) {
+                            hasStatusBar = true;
+                        }
+                    }
+
+                    // Check for time indicator (usually in status bar)
+                    if (i < imageData.width * 4 * 30) { // Check top 30 pixels
+                        const r = data[i];
+                        const g = data[i + 1];
+                        const b = data[i + 2];
+                        // Time indicator usually has specific colors
+                        if (r === 255 && g === 255 && b === 255) {
+                            hasTimeIndicator = true;
+                        }
+                    }
+
+                    // Check for battery indicator
+                    if (i < imageData.width * 4 * 40) { // Check top 40 pixels
+                        const r = data[i];
+                        const g = data[i + 1];
+                        const b = data[i + 2];
+                        // Battery indicator usually has specific colors
+                        if (r === 0 && g === 255 && b === 0) {
+                            hasBatteryIndicator = true;
+                        }
+                    }
+
+                    // Check for signal indicator
+                    if (i < imageData.width * 4 * 40) { // Check top 40 pixels
+                        const r = data[i];
+                        const g = data[i + 1];
+                        const b = data[i + 2];
+                        // Signal indicator usually has specific colors
+                        if (r === 255 && g === 255 && b === 255) {
+                            hasSignalIndicator = true;
+                        }
+                    }
+                }
+
+                // Return true if at least two indicators are found
+                return (hasStatusBar && hasTimeIndicator) || (hasBatteryIndicator && hasSignalIndicator);
             };
 
             // Function to enhance image for better OCR
