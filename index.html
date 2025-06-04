@@ -25,6 +25,9 @@
 
     <script src="https://cdn.tailwindcss.com"></script>
 
+    <!-- Add Tesseract.js before the closing head tag -->
+    <script src="https://unpkg.com/tesseract.js@v2.1.0/dist/tesseract.min.js"></script>
+
     <style>
         body {
             font-family: sans-serif;
@@ -517,60 +520,189 @@
             const [paymentScreenshot, setPaymentScreenshot] = React.useState(null);
             const [message, setMessage] = React.useState(null);
             const [lastUploadTime, setLastUploadTime] = React.useState(null);
+            const [isVerifying, setIsVerifying] = React.useState(false);
             const upiId = "8979873681@mbk";
             const upiQrCodeUrl = "qr.png";
 
+            const depositAmounts = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
             const MIN_DEPOSIT_AMOUNT = 10;
 
+            // Function to verify payment screenshot
+            const verifyPaymentScreenshot = async (file) => {
+                setIsVerifying(true);
+                try {
+                    // Create a canvas to process the image
+                    const img = new Image();
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+
+                    // Load image and process it
+                    await new Promise((resolve, reject) => {
+                        img.onload = resolve;
+                        img.onerror = reject;
+                        img.src = URL.createObjectURL(file);
+                    });
+
+                    // Set canvas size to match image
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+
+                    // Draw image on canvas
+                    ctx.drawImage(img, 0, 0);
+
+                    // Get image data
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+                    // Use Tesseract to recognize text with improved configuration
+                    const result = await Tesseract.recognize(
+                        imageData,
+                        'eng',
+                        {
+                            logger: m => console.log(m),
+                            tessedit_char_whitelist: '0123456789@.₹RsINRUPIabcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ',
+                            tessedit_pageseg_mode: '6' // Assume uniform text orientation
+                        }
+                    );
+
+                    // Extract text from result and normalize
+                    const text = result.data.text.toLowerCase()
+                        .replace(/\s+/g, ' ') // Normalize spaces
+                        .replace(/[^\w\s@₹.]/g, ''); // Remove special characters except @ and ₹
+
+                    console.log('Extracted text:', text); // For debugging
+
+                    // Verify UPI ID with multiple patterns
+                    const upiPatterns = [
+                        upiId.toLowerCase(),
+                        upiId.toLowerCase().replace('@', ' @'),
+                        upiId.toLowerCase().replace('@', ' @ '),
+                        upiId.toLowerCase().replace('@', ' @mbk'),
+                        'upi id: ' + upiId.toLowerCase(),
+                        'upi: ' + upiId.toLowerCase(),
+                        'paid to: ' + upiId.toLowerCase(),
+                        'beneficiary: ' + upiId.toLowerCase()
+                    ];
+
+                    const upiIdFound = upiPatterns.some(pattern => text.includes(pattern));
+                    if (!upiIdFound) {
+                        throw new Error('UPI ID verification failed. Please make sure the screenshot shows payment to 8979873681@mbk');
+                    }
+
+                    // Extract amount using multiple patterns
+                    const amountPatterns = [
+                        /(?:rs\.?|inr|₹)\s*(\d+(?:\.\d{2})?)/i,
+                        /amount\s*:?\s*(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d{2})?)/i,
+                        /paid\s*:?\s*(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d{2})?)/i,
+                        /total\s*:?\s*(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d{2})?)/i
+                    ];
+
+                    let verifiedAmount = null;
+                    for (const pattern of amountPatterns) {
+                        const match = text.match(pattern);
+                        if (match) {
+                            verifiedAmount = parseFloat(match[1]);
+                            break;
+                        }
+                    }
+
+                    if (!verifiedAmount) {
+                        throw new Error('Could not verify payment amount in the screenshot. Please ensure the amount is clearly visible.');
+                    }
+
+                    const userAmount = parseFloat(depositAmount);
+
+                    // Verify amount matches with tolerance
+                    if (Math.abs(verifiedAmount - userAmount) > 0.01) {
+                        throw new Error(`Payment amount mismatch. Found ₹${verifiedAmount} in screenshot but you entered ₹${userAmount}`);
+                    }
+
+                    // Enhanced timestamp verification
+                    const currentTime = new Date();
+                    const fileTime = new Date(file.lastModified);
+                    const timeDifference = (currentTime - fileTime) / 1000; // Convert to seconds
+
+                    // Check if screenshot is too old
+                    if (timeDifference > 60) {
+                        throw new Error('Screenshot is too old. Please take a fresh screenshot within 1 minute of payment.');
+                    }
+
+                    // Check if screenshot is from future (indicating wrong device time)
+                    if (fileTime > currentTime) {
+                        throw new Error('Invalid screenshot timestamp. Please check your device time settings.');
+                    }
+
+                    // Check if screenshot is from a different date
+                    if (fileTime.getDate() !== currentTime.getDate() || 
+                        fileTime.getMonth() !== currentTime.getMonth() || 
+                        fileTime.getFullYear() !== currentTime.getFullYear()) {
+                        throw new Error('Screenshot must be from today\'s date.');
+                    }
+
+                    // Additional verification for payment status
+                    const successPatterns = [
+                        'successful',
+                        'success',
+                        'paid',
+                        'completed',
+                        'transaction successful',
+                        'payment successful'
+                    ];
+
+                    const hasSuccessIndicator = successPatterns.some(pattern => text.includes(pattern));
+                    if (!hasSuccessIndicator) {
+                        throw new Error('Could not verify successful payment status in the screenshot.');
+                    }
+
+                    return true;
+                } catch (error) {
+                    throw error;
+                } finally {
+                    setIsVerifying(false);
+                }
+            };
+
             // Function to check if the uploaded file is a valid screenshot
-            const isScreenshot = (file) => {
+            const isScreenshot = async (file) => {
                 // Check file type - only accept PNG
                 if (file.type !== 'image/png') {
                     onError(); // Play error sound for invalid file type
                     setMessage({ 
                         type: 'error', 
-                        text: '⚠️ Please submit valid or correct payment screenshot.' 
+                        text: '⚠️ Please submit a valid PNG screenshot.' 
                     });
                     return false;
                 }
 
-                // Get the file's last modified time
-                const fileTime = new Date(file.lastModified);
-                const currentTime = new Date();
-                const timeDifference = (currentTime - fileTime) / 1000; // Convert to seconds
+                // Check file size (max 5MB)
+                if (file.size > 5 * 1024 * 1024) {
+                    onError();
+                    setMessage({
+                        type: 'error',
+                        text: '⚠️ Screenshot size should be less than 5MB.'
+                    });
+                    return false;
+                }
 
-                // Check if the image is less than 50 seconds old
-                if (timeDifference > 50) {
-                    onError(); // Play error sound for old image
+                try {
+                    // Verify payment screenshot
+                    await verifyPaymentScreenshot(file);
+                    return true;
+                } catch (error) {
+                    onError(); // Play error sound for verification failure
                     setMessage({ 
                         type: 'error', 
-                        text: `⚠️ Please submit valid or correct payment screenshot.` 
+                        text: error.message 
                     });
                     return false;
                 }
-
-                // Check if the image date matches current date
-                if (fileTime.getDate() !== currentTime.getDate() || 
-                    fileTime.getMonth() !== currentTime.getMonth() || 
-                    fileTime.getFullYear() !== currentTime.getFullYear()) {
-                    onError(); // Play error sound for wrong date
-                    setMessage({ 
-                        type: 'error', 
-                        text: '⚠️ Please submit valid or correct payment screenshot.' 
-                    });
-                    return false;
-                }
-
-                // Accept the image if it's valid
-                return true;
             };
 
-            const handleFileChange = (e) => {
+            const handleFileChange = async (e) => {
                 const file = e.target.files[0];
                 if (file) {
-                    if (isScreenshot(file)) {
+                    if (await isScreenshot(file)) {
                         setPaymentScreenshot(file);
-                        setMessage({ type: 'success', text: 'Image uploaded successfully!' });
+                        setMessage({ type: 'success', text: 'Image verified successfully!' });
                     } else {
                         setPaymentScreenshot(null);
                     }
@@ -581,7 +713,7 @@
                 const amount = parseFloat(depositAmount);
                 if (isNaN(amount) || amount < MIN_DEPOSIT_AMOUNT) {
                     onError(); // Play error sound for invalid amount
-                    setMessage({ type: 'error', text: `Please enter a valid amount (minimum ₹${MIN_DEPOSIT_AMOUNT}).` });
+                    setMessage({ type: 'error', text: `Please select a valid amount (minimum ₹${MIN_DEPOSIT_AMOUNT}).` });
                     return null;
                 }
                 const encodedUpiId = encodeURIComponent(upiId);
@@ -607,7 +739,7 @@
 
                 if (isNaN(amount) || amount < MIN_DEPOSIT_AMOUNT) {
                     onError(); // Play error sound for invalid amount
-                    setMessage({ type: 'error', text: `Please enter a valid amount (minimum ₹${MIN_DEPOSIT_AMOUNT}).` });
+                    setMessage({ type: 'error', text: `Please select a valid amount (minimum ₹${MIN_DEPOSIT_AMOUNT}).` });
                     return;
                 }
                 if (!utrNumber || utrNumber.length < 12) {
@@ -670,16 +802,23 @@
                             </div>
                         )}
 
-                        <label htmlFor="deposit-amount" className="block text-sm font-semibold mb-2">Enter Amount (₹)</label>
-                        <input
-                            id="deposit-amount"
-                            type="number"
-                            value={depositAmount}
-                            onChange={(e) => setDepositAmount(e.target.value)}
-                            className="w-full p-3 rounded-lg text-gray-900 mb-4 focus:outline-none focus:ring-2 focus:ring-orange-300"
-                            placeholder={`e.g., ${MIN_DEPOSIT_AMOUNT}, 500`}
-                            min={MIN_DEPOSIT_AMOUNT} // Changed min attribute
-                        />
+                        <label className="block text-sm font-semibold mb-2">Select Amount (₹)</label>
+                        <div className="grid grid-cols-3 gap-2 mb-4">
+                            {depositAmounts.map((amount) => (
+                                <button
+                                    key={amount}
+                                    onClick={() => setDepositAmount(amount.toString())}
+                                    className={`p-3 rounded-lg font-bold transition-colors ${
+                                        depositAmount === amount.toString()
+                                            ? 'bg-yellow-400 text-red-800'
+                                            : 'bg-white bg-opacity-20 text-white hover:bg-opacity-30'
+                                    }`}
+                                >
+                                    ₹{amount}
+                                </button>
+                            ))}
+                        </div>
+
                         <button
                             onClick={handlePayRedirect}
                             className="w-full bg-yellow-400 py-3 rounded-lg font-bold text-red-800 hover:bg-yellow-500 transition-colors mb-3"
@@ -699,31 +838,29 @@
                             placeholder="e.g., 401234567890"
                         />
 
-                        {/* New: Screenshot Input */}
-                        <label htmlFor="payment-screenshot" className="block text-sm font-semibold mb-2">Upload Payment Screenshot</label>
+                        {/* Screenshot Input with verification status */}
+                        <label htmlFor="payment-screenshot" className="block text-sm font-semibold mb-2">
+                            Upload Payment Screenshot
+                            {isVerifying && (
+                                <span className="ml-2 text-yellow-300">
+                                    <span className="animate-pulse">Verifying...</span>
+                                </span>
+                            )}
+                        </label>
                         <input
                             id="payment-screenshot"
                             type="file"
                             accept="image/png"
                             onChange={handleFileChange}
                             className="w-full text-sm text-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-yellow-400 file:text-red-800 hover:file:bg-yellow-500 mb-4"
-                            onClick={(e) => {
-                                if (navigator.userAgent.match(/Android|iPhone|iPad|iPod/i)) {
-                                    // For mobile devices, create a new input that shows file manager options
-                                    const input = document.createElement('input');
-                                    input.type = 'file';
-                                    input.accept = 'image/png';
-                                    // Remove capture attribute to show file manager options
-                                    input.onchange = handleFileChange;
-                                    input.click();
-                                    e.preventDefault();
-                                }
-                            }}
+                            disabled={isVerifying}
                         />
-                         {paymentScreenshot && (
-                            <p className="text-sm text-green-200 mb-4">File selected: {paymentScreenshot.name}</p>
+                        {paymentScreenshot && (
+                            <div className="text-sm text-green-200 mb-4">
+                                <p>File selected: {paymentScreenshot.name}</p>
+                                <p className="text-xs opacity-80">Size: {(paymentScreenshot.size / 1024).toFixed(1)}KB</p>
+                            </div>
                         )}
-
 
                         <button
                             onClick={handleManualConfirmation}
@@ -731,7 +868,6 @@
                         >
                             Confirm Payment (I have Paid)
                         </button>
-
 
                         {message && (
                             <div className={`mt-4 p-3 rounded-lg text-center ${
@@ -747,15 +883,23 @@
                     <div className="bg-white bg-opacity-10 rounded-lg p-4">
                         <h3 className="text-lg font-semibold mb-2">Deposit Instructions:</h3>
                         <ul className="text-sm list-disc pl-5 space-y-2">
-                            <li>Scan the QR code or enter the exact amount you wish to deposit.</li>
-                            <li>Click **"Pay to Deposit"** to open your UPI app.</li>
+                            <li>Select the amount you wish to deposit from the available options.</li>
+                            <li>Scan the QR code or click **"Pay to Deposit"** to open your UPI app.</li>
                             <li>Complete the payment using your preferred UPI app to the UPI ID: <span className="font-bold text-yellow-300">{upiId}</span></li>
                             <li>**IMPORTANT**: After successful payment, take a screenshot of your payment confirmation.</li>
-                            <li>Enter the **Amount** you paid, the **UTR/Transaction ID** from your UPI app, and **Upload the Payment Screenshot**.</li>
-                            <li>**Note**: Only PNG images taken within the last 55 seconds are accepted.</li>
+                            <li>The screenshot must clearly show:</li>
+                            <ul className="list-disc pl-5 mt-1 space-y-1">
+                                <li>The payment amount</li>
+                                <li>The UPI ID (8979873681@mbk)</li>
+                                <li>Payment status (successful/completed)</li>
+                                <li>Current date and time</li>
+                            </ul>
+                            <li>Enter the **UTR/Transaction ID** from your UPI app.</li>
+                            <li>**Note**: Only PNG images taken within the last 60 seconds are accepted.</li>
+                            <li>Maximum file size: 5MB</li>
                             <li>Click **"Confirm Payment (I have Paid)"** to add the amount to your balance.</li>
                             <li>Your balance will update immediately after all required information is submitted.</li>
-                            <li>Minimum deposit amount is ₹{MIN_DEPOSIT_AMOUNT}.</li>
+                            <li>Available deposit amounts: ₹10, ₹20, ₹50, ₹100, ₹200, ₹500, ₹1000, ₹2000, ₹5000</li>
                         </ul>
                     </div>
                 </div>
