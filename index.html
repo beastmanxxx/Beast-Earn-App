@@ -479,8 +479,14 @@
                                     <div className="space-y-3 max-h-96 overflow-y-auto">
                                         {depositHistory.map((deposit, index) => (
                                             <div key={index} className="flex items-center justify-between bg-white bg-opacity-10 rounded-lg p-3">
-                                                <div className="text-sm font-bold text-green-300">+ ₹{deposit.amount.toFixed(2)}</div>
-                                                <div className="text-xs opacity-80 truncate ml-2">{deposit.utr}</div>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                                    <div className="text-sm font-bold text-green-300">+ ₹{deposit.amount.toFixed(2)}</div>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="text-xs opacity-80 truncate">{deposit.utr}</div>
+                                                    <div className="text-xs bg-green-500 bg-opacity-20 text-green-300 px-2 py-1 rounded">Completed</div>
+                                                </div>
                                                 <div className="text-xs opacity-70">{new Date(deposit.timestamp).toLocaleString()}</div>
                                             </div>
                                         ))}
@@ -496,13 +502,33 @@
                                     <p className="text-center opacity-70">No withdrawal history yet.</p>
                                 ) : (
                                     <div className="space-y-3 max-h-96 overflow-y-auto">
-                                        {withdrawHistory.map((withdraw, index) => (
-                                            <div key={index} className="flex items-center justify-between bg-white bg-opacity-10 rounded-lg p-3">
-                                                <div className="text-sm font-bold text-red-300">- ₹{withdraw.amount.toFixed(2)}</div>
-                                                <div className="text-xs opacity-80 truncate ml-2">{withdraw.upiId}</div>
-                                                <div className="text-xs opacity-70">{new Date(withdraw.timestamp).toLocaleString()}</div>
-                                            </div>
-                                        ))}
+                                        {withdrawHistory.map((withdraw, index) => {
+                                            // Calculate if 20 seconds have passed since withdrawal
+                                            const withdrawTime = new Date(withdraw.timestamp);
+                                            const currentTime = new Date();
+                                            const timeDiff = (currentTime - withdrawTime) / 1000; // Convert to seconds
+                                            const isCompleted = timeDiff >= 20;
+
+                                            return (
+                                                <div key={index} className="flex items-center justify-between bg-white bg-opacity-10 rounded-lg p-3">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className={`w-2 h-2 rounded-full ${isCompleted ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
+                                                        <div className="text-sm font-bold text-red-300">- ₹{withdraw.amount.toFixed(2)}</div>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="text-xs opacity-80 truncate">{withdraw.upiId}</div>
+                                                        <div className={`text-xs px-2 py-1 rounded ${
+                                                            isCompleted 
+                                                                ? 'bg-green-500 bg-opacity-20 text-green-300' 
+                                                                : 'bg-yellow-500 bg-opacity-20 text-yellow-300'
+                                                        }`}>
+                                                            {isCompleted ? 'Completed' : 'Pending'}
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-xs opacity-70">{new Date(withdraw.timestamp).toLocaleString()}</div>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 )}
                             </div>
