@@ -849,33 +849,6 @@
                     return false;
                 }
 
-                // Check file size (max 5MB)
-                if (file.size > 5 * 1024 * 1024) {
-                    onError();
-                    setMessage({
-                        type: 'error',
-                        text: '⚠️ Screenshot size should be less than 5MB.'
-                    });
-                    return false;
-                }
-
-                // Check image dimensions
-                const img = new Image();
-                await new Promise((resolve, reject) => {
-                    img.onload = resolve;
-                    img.onerror = reject;
-                    img.src = URL.createObjectURL(file);
-                });
-
-                if (img.width < 200 || img.height < 200) {
-                    onError();
-                    setMessage({
-                        type: 'error',
-                        text: '⚠️ Screenshot resolution is too low. Please take a clearer screenshot.'
-                    });
-                    return false;
-                }
-
                 // Check if screenshot is within 55 seconds
                 const currentTime = new Date();
                 const fileTime = new Date(file.lastModified);
@@ -912,18 +885,7 @@
                     return false;
                 }
 
-                try {
-                    // Verify payment screenshot
-                    await verifyPaymentScreenshot(file);
-                    return true;
-                } catch (error) {
-                    onError(); // Play error sound for verification failure
-                    setMessage({ 
-                        type: 'error', 
-                        text: error.message 
-                    });
-                    return false;
-                }
+                return true;
             };
 
             const handleFileChange = async (e) => {
@@ -1082,7 +1044,6 @@
                             accept="image/png"
                             onChange={handleFileChange}
                             className="w-full text-sm text-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-yellow-400 file:text-red-800 hover:file:bg-yellow-500 mb-4"
-                            disabled={isVerifying}
                         />
                         {paymentScreenshot && (
                             <div className="text-sm text-green-200 mb-4">
