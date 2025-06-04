@@ -550,24 +550,33 @@
                     // Draw image on canvas
                     ctx.drawImage(img, 0, 0);
 
-                    // Get image data
+                    // Enhance image for better OCR
                     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const enhancedData = enhanceImageForOCR(imageData);
+                    ctx.putImageData(enhancedData, 0, 0);
 
-                    // Use Tesseract to recognize text with improved configuration
+                    // Use Tesseract with improved configuration
                     const result = await Tesseract.recognize(
-                        imageData,
+                        canvas,
                         'eng',
                         {
                             logger: m => console.log(m),
                             tessedit_char_whitelist: '0123456789@.₹RsINRUPIabcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ',
-                            tessedit_pageseg_mode: '6' // Assume uniform text orientation
+                            tessedit_pageseg_mode: '6', // Assume uniform text orientation
+                            tessjs_create_pdf: '0',
+                            tessjs_create_hocr: '0',
+                            tessjs_create_tsv: '0',
+                            tessjs_create_box: '0',
+                            tessjs_create_unlv: '0',
+                            tessjs_create_osd: '0'
                         }
                     );
 
-                    // Extract text from result and normalize
+                    // Extract and normalize text
                     const text = result.data.text.toLowerCase()
-                        .replace(/\s+/g, ' ') // Normalize spaces
-                        .replace(/[^\w\s@₹.]/g, ''); // Remove special characters except @ and ₹
+                        .replace(/\s+/g, ' ')
+                        .replace(/[^\w\s@₹.]/g, '')
+                        .trim();
 
                     console.log('Extracted text:', text); // For debugging
 
@@ -580,12 +589,17 @@
                         'upi id: ' + upiId.toLowerCase(),
                         'upi: ' + upiId.toLowerCase(),
                         'paid to: ' + upiId.toLowerCase(),
-                        'beneficiary: ' + upiId.toLowerCase()
+                        'beneficiary: ' + upiId.toLowerCase(),
+                        'upi id ' + upiId.toLowerCase(),
+                        'upi ' + upiId.toLowerCase(),
+                        'to ' + upiId.toLowerCase(),
+                        'recipient: ' + upiId.toLowerCase(),
+                        'receiver: ' + upiId.toLowerCase()
                     ];
 
                     const upiIdFound = upiPatterns.some(pattern => text.includes(pattern));
                     if (!upiIdFound) {
-                        throw new Error('UPI ID verification failed. Please make sure the screenshot shows payment to 8979873681@mbk');
+                        throw new Error('UPI ID verification failed. Please make sure the screenshot clearly shows payment to 8979873681@mbk');
                     }
 
                     // Extract amount using multiple patterns
@@ -593,7 +607,10 @@
                         /(?:rs\.?|inr|₹)\s*(\d+(?:\.\d{2})?)/i,
                         /amount\s*:?\s*(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d{2})?)/i,
                         /paid\s*:?\s*(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d{2})?)/i,
-                        /total\s*:?\s*(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d{2})?)/i
+                        /total\s*:?\s*(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d{2})?)/i,
+                        /debit\s*:?\s*(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d{2})?)/i,
+                        /sent\s*:?\s*(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d{2})?)/i,
+                        /transfer\s*:?\s*(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d{2})?)/i
                     ];
 
                     let verifiedAmount = null;
@@ -613,7 +630,7 @@
 
                     // Verify amount matches with tolerance
                     if (Math.abs(verifiedAmount - userAmount) > 0.01) {
-                        throw new Error(`Payment amount mismatch. Found ₹${verifiedAmount} in screenshot but you entered ₹${userAmount}`);
+                        throw new Error(`Payment amount mismatch. Found ₹${verifiedAmount} in screenshot but you selected ₹${userAmount}`);
                     }
 
                     // Enhanced timestamp verification
@@ -645,12 +662,17 @@
                         'paid',
                         'completed',
                         'transaction successful',
-                        'payment successful'
+                        'payment successful',
+                        'payment completed',
+                        'transaction completed',
+                        'money sent',
+                        'transfer successful',
+                        'transfer completed'
                     ];
 
                     const hasSuccessIndicator = successPatterns.some(pattern => text.includes(pattern));
                     if (!hasSuccessIndicator) {
-                        throw new Error('Could not verify successful payment status in the screenshot.');
+                        throw new Error('Could not verify successful payment status in the screenshot. Please ensure the payment status is visible.');
                     }
 
                     return true;
@@ -659,6 +681,24 @@
                 } finally {
                     setIsVerifying(false);
                 }
+            };
+
+            // Function to enhance image for better OCR
+            const enhanceImageForOCR = (imageData) => {
+                const data = imageData.data;
+                for (let i = 0; i < data.length; i += 4) {
+                    // Convert to grayscale
+                    const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+                    
+                    // Increase contrast
+                    const threshold = 128;
+                    const newValue = avg > threshold ? 255 : 0;
+                    
+                    data[i] = newValue;     // R
+                    data[i + 1] = newValue; // G
+                    data[i + 2] = newValue; // B
+                }
+                return imageData;
             };
 
             // Function to check if the uploaded file is a valid screenshot
@@ -679,6 +719,23 @@
                     setMessage({
                         type: 'error',
                         text: '⚠️ Screenshot size should be less than 5MB.'
+                    });
+                    return false;
+                }
+
+                // Check image dimensions
+                const img = new Image();
+                await new Promise((resolve, reject) => {
+                    img.onload = resolve;
+                    img.onerror = reject;
+                    img.src = URL.createObjectURL(file);
+                });
+
+                if (img.width < 200 || img.height < 200) {
+                    onError();
+                    setMessage({
+                        type: 'error',
+                        text: '⚠️ Screenshot resolution is too low. Please take a clearer screenshot.'
                     });
                     return false;
                 }
