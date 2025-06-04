@@ -281,20 +281,7 @@
 
         // --- Auth Components ---
         const LoginPage = ({ setAuthenticated, navigateToRegister }) => {
-            const [email, setEmail] = React.useState('');
-            const [password, setPassword] = React.useState('');
             const [error, setError] = React.useState('');
-
-            const handleLogin = async () => {
-                setError('');
-                showLoader();
-                try {
-                    const userCredential = await auth.signInWithEmailAndPassword(email, password);
-                    setAuthenticated(true);
-                } catch (error) {
-                    setError(error.message);
-                }
-            };
 
             const handleGoogleLogin = async () => {
                 setError('');
@@ -331,40 +318,7 @@
                     <h1 className="text-4xl font-extrabold mb-8 text-yellow-300 drop-shadow-lg">Beast Earn</h1>
                     <h2 className="text-3xl font-bold mb-6">Login</h2>
                     <div className="bg-white bg-opacity-20 rounded-lg p-8 w-full max-w-sm">
-                        <div className="mb-4">
-                            <label htmlFor="email" className="block text-sm font-semibold mb-2">Email</label>
-                            <input
-                                id="email"
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                className="w-full p-3 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-300"
-                                placeholder="Enter your email"
-                            />
-                        </div>
-                        <div className="mb-6">
-                            <label htmlFor="password" className="block text-sm font-semibold mb-2">Password</label>
-                            <input
-                                id="password"
-                                type="password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                className="w-full p-3 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-300"
-                                placeholder="Enter your password"
-                            />
-                        </div>
                         {error && <p className="text-yellow-200 text-sm mb-4">{error}</p>}
-                        <button
-                            onClick={handleLogin}
-                            className="w-full bg-yellow-400 py-3 rounded-lg font-bold text-red-800 hover:bg-yellow-500 transition-colors mb-4"
-                        >
-                            Login
-                        </button>
-                        <div className="relative flex items-center justify-center mb-4">
-                            <div className="border-t border-white border-opacity-30 w-full"></div>
-                            <span className="bg-white bg-opacity-20 px-4 text-sm">OR</span>
-                            <div className="border-t border-white border-opacity-30 w-full"></div>
-                        </div>
                         <button
                             onClick={handleGoogleLogin}
                             className="w-full bg-white py-3 rounded-lg font-bold text-gray-800 hover:bg-gray-100 transition-colors mb-4 flex items-center justify-center"
@@ -381,56 +335,33 @@
         };
 
         const RegisterPage = ({ setAuthenticated, navigateToLogin }) => {
-            const [email, setEmail] = React.useState('');
-            const [password, setPassword] = React.useState('');
-            const [confirmPassword, setConfirmPassword] = React.useState('');
             const [error, setError] = React.useState('');
-            const [loading, setLoading] = React.useState(false);
 
-            const handleRegister = async (e) => {
-                e.preventDefault();
+            const handleGoogleLogin = async () => {
                 setError('');
-                setLoading(true);
-
-                if (!email || !password || !confirmPassword) {
-                    setError('All fields are required');
-                    setLoading(false);
-                    return;
-                }
-
-                if (password !== confirmPassword) {
-                    setError('Passwords do not match');
-                    setLoading(false);
-                    return;
-                }
-
-                if (password.length < 6) {
-                    setError('Password must be at least 6 characters long');
-                    setLoading(false);
-                    return;
-                }
-
+                showLoader();
                 try {
-                    // Create user with email and password
-                    const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-                    const user = userCredential.user;
-
-                    // Create initial user document in Firestore
-                    await db.collection('users').doc(user.uid).set({
-                        email: user.email,
-                        balance: 0,
-                        gameHistory: [],
-                        depositHistory: [],
-                        withdrawHistory: [],
-                        createdAt: new Date().toISOString()
-                    });
-
+                    const provider = new firebase.auth.GoogleAuthProvider();
+                    const result = await auth.signInWithPopup(provider);
+                    
+                    // Check if this is a new user
+                    const userDoc = await db.collection('users').doc(result.user.uid).get();
+                    
+                    if (!userDoc.exists) {
+                        // Create initial user document for new Google users
+                        await db.collection('users').doc(result.user.uid).set({
+                            email: result.user.email,
+                            balance: 0,
+                            gameHistory: [],
+                            depositHistory: [],
+                            withdrawHistory: [],
+                            createdAt: new Date().toISOString()
+                        });
+                    }
+                    
                     setAuthenticated(true);
                 } catch (error) {
-                    console.error("Registration error:", error);
                     setError(error.message);
-                } finally {
-                    setLoading(false);
                 }
             };
 
@@ -441,45 +372,13 @@
                     <h1 className="text-4xl font-extrabold mb-8 text-yellow-300 drop-shadow-lg">Beast Earn</h1>
                     <h2 className="text-3xl font-bold mb-6">Register</h2>
                     <div className="bg-white bg-opacity-20 rounded-lg p-8 w-full max-w-sm">
-                        <div className="mb-4">
-                            <label htmlFor="reg-email" className="block text-sm font-semibold mb-2">Email</label>
-                            <input
-                                id="reg-email"
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                className="w-full p-3 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-300"
-                                placeholder="Enter your email"
-                            />
-                        </div>
-                        <div className="mb-4">
-                            <label htmlFor="reg-password" className="block text-sm font-semibold mb-2">Password</label>
-                            <input
-                                id="reg-password"
-                                type="password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                className="w-full p-3 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-300"
-                                placeholder="Create a password"
-                            />
-                        </div>
-                        <div className="mb-6">
-                            <label htmlFor="confirm-password" className="block text-sm font-semibold mb-2">Confirm Password</label>
-                            <input
-                                id="confirm-password"
-                                type="password"
-                                value={confirmPassword}
-                                onChange={(e) => setConfirmPassword(e.target.value)}
-                                className="w-full p-3 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-300"
-                                placeholder="Confirm your password"
-                            />
-                        </div>
                         {error && <p className="text-yellow-200 text-sm mb-4">{error}</p>}
                         <button
-                            onClick={handleRegister}
-                            className="w-full bg-yellow-400 py-3 rounded-lg font-bold text-red-800 hover:bg-yellow-500 transition-colors mb-4"
+                            onClick={handleGoogleLogin}
+                            className="w-full bg-white py-3 rounded-lg font-bold text-gray-800 hover:bg-gray-100 transition-colors mb-4 flex items-center justify-center"
                         >
-                            Register
+                            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-6 h-6 mr-2" />
+                            Continue with Google
                         </button>
                         <p className="text-center text-sm opacity-80">
                             Already have an account? <button onClick={navigateToLogin} className="text-yellow-300 font-semibold hover:underline">Login here</button>
@@ -871,12 +770,13 @@
             const formRef = React.useRef(null);
 
             const MIN_WITHDRAW_AMOUNT = 200;
+            const withdrawAmounts = [200, 500, 1000, 2000];
 
             const handleWithdraw = async () => {
                 const amount = parseFloat(withdrawAmount);
                 if (isNaN(amount) || amount < MIN_WITHDRAW_AMOUNT) {
                     onError(); // Play error sound for invalid amount
-                    setMessage({ type: 'error', text: `Please enter a valid amount (minimum ₹${MIN_WITHDRAW_AMOUNT}).` });
+                    setMessage({ type: 'error', text: `Please select a valid amount (minimum ₹${MIN_WITHDRAW_AMOUNT}).` });
                     return;
                 }
                 if (!upiIdInput) {
@@ -954,16 +854,22 @@
                         <div className="text-center mb-4">
                             <div className="text-xl font-bold">Current Balance: ₹{balance.toFixed(2)}</div>
                         </div>
-                        <label htmlFor="withdraw-amount" className="block text-sm font-semibold mb-2">Enter Amount (₹)</label>
-                        <input
-                            id="withdraw-amount"
-                            type="number"
-                            value={withdrawAmount}
-                            onChange={(e) => setWithdrawAmount(e.target.value)}
-                            className="w-full p-3 rounded-lg text-gray-900 mb-4 focus:outline-none focus:ring-2 focus:ring-orange-300"
-                            placeholder={`e.g., ${MIN_WITHDRAW_AMOUNT}, 500`}
-                            min={MIN_WITHDRAW_AMOUNT} // Changed min attribute
-                        />
+                        <label className="block text-sm font-semibold mb-2">Select Amount (₹)</label>
+                        <div className="grid grid-cols-2 gap-2 mb-4">
+                            {withdrawAmounts.map((amount) => (
+                                <button
+                                    key={amount}
+                                    onClick={() => setWithdrawAmount(amount.toString())}
+                                    className={`p-3 rounded-lg font-bold transition-colors ${
+                                        withdrawAmount === amount.toString()
+                                            ? 'bg-yellow-400 text-red-800'
+                                            : 'bg-white bg-opacity-20 text-white hover:bg-opacity-30'
+                                    }`}
+                                >
+                                    ₹{amount}
+                                </button>
+                            ))}
+                        </div>
                         <label htmlFor="upi-id" className="block text-sm font-semibold mb-2">Your UPI ID</label>
                         <input
                             id="upi-id"
@@ -998,7 +904,7 @@
                     <div className="bg-white bg-opacity-10 rounded-lg p-4">
                         <h3 className="text-lg font-semibold mb-2">Withdrawal Instructions:</h3>
                         <ul className="text-sm list-disc pl-5 space-y-2">
-                            <li>Enter the amount you wish to withdraw (minimum ₹{MIN_WITHDRAW_AMOUNT}).</li>
+                            <li>Select the amount you wish to withdraw (₹200, ₹500, ₹1000, or ₹2000).</li>
                             <li>Enter your valid UPI ID where you want to receive the funds.</li>
                             <li>Click the **"Withdraw"** button.</li>
                             <li>Your balance will be deducted immediately.</li>
