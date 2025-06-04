@@ -2044,17 +2044,21 @@
         };
 
         // Profile Page Component
-        const ProfilePage = ({ navigateTo, currentUser, updateUserData }) => {
+        const ProfilePage = ({ navigateTo, currentUser, updateUserData, setBalance }) => {
             const [userName, setUserName] = React.useState('');
             const [isEditing, setIsEditing] = React.useState(false);
             const [message, setMessage] = React.useState(null);
+            const [giftCode, setGiftCode] = React.useState('');
+            const [lastRedeemTime, setLastRedeemTime] = React.useState(null);
 
             // Load user data when component mounts
             React.useEffect(() => {
                 if (currentUser) {
                     db.collection('users').doc(currentUser.uid).get().then((doc) => {
-                        if (doc.exists && doc.data().userName) {
-                            setUserName(doc.data().userName);
+                        if (doc.exists) {
+                            const userData = doc.data();
+                            setUserName(userData.userName || '');
+                            setLastRedeemTime(userData.lastGiftCodeRedeemTime || null);
                         }
                     });
                 }
@@ -2073,6 +2077,51 @@
                     setTimeout(() => setMessage(null), 3000);
                 } catch (error) {
                     setMessage({ type: 'error', text: 'Failed to update profile' });
+                }
+            };
+
+            const handleRedeemGiftCode = async () => {
+                if (!giftCode.trim()) {
+                    setMessage({ type: 'error', text: 'Please enter a gift code' });
+                    return;
+                }
+
+                // Check if 24 hours have passed since last redemption
+                if (lastRedeemTime) {
+                    const lastRedeem = new Date(lastRedeemTime);
+                    const now = new Date();
+                    const hoursDiff = (now - lastRedeem) / (1000 * 60 * 60);
+                    
+                    if (hoursDiff < 24) {
+                        const remainingHours = Math.ceil(24 - hoursDiff);
+                        setMessage({ 
+                            type: 'error', 
+                            text: `You can redeem a gift code again in ${remainingHours} hours` 
+                        });
+                        return;
+                    }
+                }
+
+                if (giftCode.toLowerCase() === 'harshit001') {
+                    try {
+                        // Update balance
+                        setBalance(prev => prev + 10);
+                        
+                        // Update last redeem time
+                        const currentTime = new Date().toISOString();
+                        await updateUserData({ lastGiftCodeRedeemTime: currentTime });
+                        setLastRedeemTime(currentTime);
+                        
+                        setMessage({ 
+                            type: 'success', 
+                            text: 'Gift code redeemed successfully! ₹10 added to your balance.' 
+                        });
+                        setGiftCode('');
+                    } catch (error) {
+                        setMessage({ type: 'error', text: 'Failed to redeem gift code' });
+                    }
+                } else {
+                    setMessage({ type: 'error', text: 'Invalid gift code' });
                 }
             };
 
@@ -2131,6 +2180,29 @@
                                         </button>
                                     </div>
                                 )}
+                            </div>
+
+                            {/* Gift Code Section */}
+                            <div className="mt-6 pt-6 border-t border-white border-opacity-20">
+                                <label className="block text-sm font-semibold mb-2">Redeem Gift Code</label>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        value={giftCode}
+                                        onChange={(e) => setGiftCode(e.target.value)}
+                                        className="flex-1 p-3 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-yellow-300"
+                                        placeholder="Enter gift code"
+                                    />
+                                    <button
+                                        onClick={handleRedeemGiftCode}
+                                        className="px-4 py-2 bg-yellow-400 text-red-800 rounded-lg font-bold hover:bg-yellow-500 transition-colors"
+                                    >
+                                        Redeem
+                                    </button>
+                                </div>
+                                <p className="text-xs opacity-70 mt-2">
+                                    Enter "harshit001" to get ₹10. Can be redeemed once every 24 hours.
+                                </p>
                             </div>
                         </div>
 
@@ -2346,6 +2418,7 @@
                         navigateTo={navigateTo} 
                         currentUser={currentUser}
                         updateUserData={updateUserData}
+                        setBalance={setBalance}
                     />;
                 default:
                     return <GameSelectionPage balance={balance} navigateTo={navigateTo} handleLogout={handleLogout} />;
