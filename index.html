@@ -551,13 +551,15 @@
             const [isVerifying, setIsVerifying] = React.useState(false);
             const [showQrCode, setShowQrCode] = React.useState(false);
             const [qrCodeExpiry, setQrCodeExpiry] = React.useState(null);
+            const [transactionId, setTransactionId] = React.useState(null);
             const qrCodeRef = React.useRef(null);
             const upiId = "8979873681@mbk";
             const depositAmounts = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
             const MIN_DEPOSIT_AMOUNT = 10;
+            const API_URL = 'http://localhost:5000';
 
             // Function to generate QR code
-            const generateQrCode = () => {
+            const generateQrCode = async () => {
                 const amount = parseFloat(depositAmount);
                 if (isNaN(amount) || amount < MIN_DEPOSIT_AMOUNT) {
                     onError();
@@ -565,37 +567,50 @@
                     return;
                 }
 
-                // Clear previous QR code if exists
-                if (qrCodeRef.current) {
-                    qrCodeRef.current.innerHTML = '';
-                }
+                try {
+                    const response = await fetch(`${API_URL}/generate-qr`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ amount })
+                    });
 
-                // Create UPI payment URL
-                const upiUrl = `upi://pay?pa=${upiId}&pn=BeastEarn&am=${amount}&cu=INR&tn=Deposit for BeastEarn`;
-                
-                // Generate QR code using qrcode.js
-                new QRCode(qrCodeRef.current, {
-                    text: upiUrl,
-                    width: 200,
-                    height: 200,
-                    colorDark: "#000000",
-                    colorLight: "#ffffff",
-                    correctLevel: QRCode.CorrectLevel.H
-                });
-
-                setShowQrCode(true);
-                setQrCodeExpiry(Date.now() + 180000); // 3 minutes expiry
-                setMessage({ type: 'info', text: 'QR Code generated! Valid for 3 minutes.' });
-
-                // Start countdown timer
-                const timer = setInterval(() => {
-                    const timeLeft = qrCodeExpiry - Date.now();
-                    if (timeLeft <= 0) {
-                        clearInterval(timer);
-                        setShowQrCode(false);
-                        setMessage({ type: 'error', text: 'QR Code expired. Please generate a new one.' });
+                    const data = await response.json();
+                    
+                    if (!data.success) {
+                        throw new Error(data.error || 'Failed to generate QR code');
                     }
-                }, 1000);
+
+                    // Clear previous QR code if exists
+                    if (qrCodeRef.current) {
+                        qrCodeRef.current.innerHTML = '';
+                    }
+
+                    // Create QR code image
+                    const img = document.createElement('img');
+                    img.src = `data:image/png;base64,${data.qr_code}`;
+                    img.className = 'w-48 h-48 mx-auto';
+                    qrCodeRef.current.appendChild(img);
+
+                    setShowQrCode(true);
+                    setTransactionId(data.transaction_id);
+                    setQrCodeExpiry(new Date(data.expiry_time));
+                    setMessage({ type: 'info', text: 'QR Code generated! Valid for 3 minutes.' });
+
+                    // Start countdown timer
+                    const timer = setInterval(() => {
+                        const timeLeft = new Date(data.expiry_time) - new Date();
+                        if (timeLeft <= 0) {
+                            clearInterval(timer);
+                            setShowQrCode(false);
+                            setMessage({ type: 'error', text: 'QR Code expired. Please generate a new one.' });
+                        }
+                    }, 1000);
+
+                } catch (error) {
+                    setMessage({ type: 'error', text: error.message });
+                }
             };
 
             // Function to verify payment
@@ -606,10 +621,31 @@
                     return;
                 }
 
+                if (!transactionId) {
+                    onError();
+                    setMessage({ type: 'error', text: 'Please generate a QR code first.' });
+                    return;
+                }
+
                 setIsVerifying(true);
                 try {
-                    // Here you would typically verify the payment with your backend
-                    // For now, we'll simulate a successful verification
+                    const response = await fetch(`${API_URL}/verify-payment`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            transaction_id: transactionId,
+                            utr_number: utrNumber
+                        })
+                    });
+
+                    const data = await response.json();
+                    
+                    if (!data.success) {
+                        throw new Error(data.error || 'Payment verification failed');
+                    }
+
                     const amount = parseFloat(depositAmount);
                     setBalance(prev => prev + amount);
                     addDepositToHistory({
@@ -621,12 +657,13 @@
                     setDepositAmount('');
                     setUtrNumber('');
                     setShowQrCode(false);
+                    setTransactionId(null);
                     setTimeout(() => {
                         setMessage(null);
                         navigateTo('gameSelection');
                     }, 2500);
                 } catch (error) {
-                    setMessage({ type: 'error', text: 'Payment verification failed. Please try again.' });
+                    setMessage({ type: 'error', text: error.message });
                 } finally {
                     setIsVerifying(false);
                 }
