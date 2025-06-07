@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Beast Earn - Color Prediction Game</title>
-    <script src="https://cdn.jsdelivr.net/npm/qrcode.js@1.0.0/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
     <!-- PWA Meta Tags -->
     <meta name="theme-color" content="#ef4444">
@@ -551,6 +551,7 @@
             const [isVerifying, setIsVerifying] = React.useState(false);
             const [showQrCode, setShowQrCode] = React.useState(false);
             const [qrCodeExpiry, setQrCodeExpiry] = React.useState(null);
+            const qrCodeRef = React.useRef(null);
             const upiId = "8979873681@mbk";
             const depositAmounts = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
             const MIN_DEPOSIT_AMOUNT = 10;
@@ -564,11 +565,16 @@
                     return;
                 }
 
+                // Clear previous QR code if exists
+                if (qrCodeRef.current) {
+                    qrCodeRef.current.innerHTML = '';
+                }
+
                 // Create UPI payment URL
                 const upiUrl = `upi://pay?pa=${upiId}&pn=BeastEarn&am=${amount}&cu=INR&tn=Deposit for BeastEarn`;
                 
                 // Generate QR code using qrcode.js
-                const qr = new QRCode(document.getElementById("qrcode"), {
+                new QRCode(qrCodeRef.current, {
                     text: upiUrl,
                     width: 200,
                     height: 200,
@@ -672,7 +678,7 @@
                             </button>
                         ) : (
                             <div className="text-center mb-4">
-                                <div id="qrcode" className="mx-auto bg-white p-4 rounded-lg inline-block mb-2"></div>
+                                <div ref={qrCodeRef} className="mx-auto bg-white p-4 rounded-lg inline-block mb-2"></div>
                                 <p className="text-sm">Scan QR code to pay ₹{depositAmount}</p>
                                 <p className="text-xs text-yellow-300 mt-1">Valid for 3 minutes</p>
                             </div>
