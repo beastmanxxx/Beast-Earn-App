@@ -849,16 +849,16 @@
                     return false;
                 }
 
-                // Check if screenshot is within 2 minutes
+                // Check if screenshot is within 60 seconds
                 const currentTime = new Date();
                 const fileTime = new Date(file.lastModified);
                 const timeDifference = (currentTime - fileTime) / 1000; // Convert to seconds
 
-                if (timeDifference > 120) { // Changed to 2 minutes (120 seconds)
+                if (timeDifference > 60) {
                     onError();
                     setMessage({
                         type: 'error',
-                        text: '⚠️ Screenshot is too old. Please take a fresh screenshot within 2 minutes of payment completion.'
+                        text: '⚠️ Screenshot is too old. Please take a fresh screenshot within 60 seconds of payment completion.'
                     });
                     return false;
                 }
@@ -881,9 +881,10 @@
             const handleFileChange = async (e) => {
                 const file = e.target.files[0];
                 if (file) {
+                    setMessage(null); // Clear previous messages when a new file is selected
                     if (await isScreenshot(file)) {
                         setPaymentScreenshot(file);
-                        setMessage({ type: 'success', text: 'Image verified successfully!' });
+                        // Additional verification is done on confirm button click, not just file selection
                     } else {
                         setPaymentScreenshot(null);
                     }
@@ -914,7 +915,7 @@
                 }
             };
 
-            const handleManualConfirmation = async () => {
+            const handleManualConfirmation = () => {
                 const amount = parseFloat(depositAmount);
                 setMessage(null);
 
@@ -933,36 +934,26 @@
                     setMessage({ type: 'error', text: 'Please upload a valid payment screenshot.' });
                     return;
                 }
-
-                // Initial client-side validation for file type and recentness
-                // The isScreenshot function already sets the message and plays error sound if validation fails
-                if (!await isScreenshot(paymentScreenshot)) {
-                    return; // Stop if the basic screenshot checks fail
+                if (!isScreenshot(paymentScreenshot)) {
+                    onError(); // Play error sound for invalid screenshot
+                    setMessage({ type: 'error', text: 'Please upload a valid payment screenshot. Other image types are not accepted.' });
+                    return;
                 }
 
-                // Perform more thorough verification using Tesseract
-                try {
-                    await verifyPaymentScreenshot(paymentScreenshot);
-
-                    // If verification is successful, proceed with deposit
-                    setBalance(prev => prev + amount);
-                    addDepositToHistory({
-                        amount: amount,
-                        utr: utrNumber,
-                        timestamp: new Date().toISOString()
-                    });
-                    setMessage({ type: 'success', text: `₹${amount.toFixed(2)} added to your balance with UTR: ${utrNumber}!` });
-                    setDepositAmount('');
-                    setUtrNumber('');
-                    setPaymentScreenshot(null);
-                    setTimeout(() => {
-                        setMessage(null);
-                        navigateTo('gameSelection');
-                    }, 2500);
-                } catch (error) {
-                    onError(); // Play error sound for verification failure
-                    setMessage({ type: 'error', text: `Verification failed: ${error.message}` });
-                }
+                setBalance(prev => prev + amount);
+                addDepositToHistory({
+                    amount: amount,
+                    utr: utrNumber,
+                    timestamp: new Date().toISOString()
+                });
+                setMessage({ type: 'success', text: `₹${amount.toFixed(2)} added to your balance with UTR: ${utrNumber}!` });
+                setDepositAmount('');
+                setUtrNumber('');
+                setPaymentScreenshot(null);
+                setTimeout(() => {
+                    setMessage(null);
+                    navigateTo('gameSelection');
+                }, 2500);
             };
 
             return (
