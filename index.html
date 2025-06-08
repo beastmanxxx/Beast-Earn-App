@@ -1465,8 +1465,6 @@
                     <div className="bg-white bg-opacity-20 rounded-lg m-4 p-4 text-center">
                         <div className="text-2xl font-bold">₹{balance.toFixed(2)}</div>
                         <div className="text-sm opacity-80">Wallet balance</div>
-                        <div className="text-lg font-semibold mt-2">₹{bonusBalance.toFixed(2)}</div>
-                        <div className="text-sm opacity-80">Bonus balance</div>
                         <div className="flex gap-2 mt-3">
                             <button
                                 className="flex-1 bg-red-400 py-2 rounded-lg"
@@ -2019,8 +2017,6 @@
                     <div className="bg-white bg-opacity-20 rounded-lg m-4 p-4 text-center">
                         <div className="text-2xl font-bold">₹{balance.toFixed(2)}</div>
                         <div className="text-sm opacity-80">Wallet balance</div>
-                        <div className="text-lg font-semibold mt-2">₹{bonusBalance.toFixed(2)}</div>
-                        <div className="text-sm opacity-80">Bonus balance</div>
                         <div className="flex gap-2 mt-3">
                             <button
                                 className="flex-1 bg-red-400 py-2 rounded-lg"
@@ -2185,6 +2181,15 @@
                     return;
                 }
 
+                // Check if balance is 40 or more
+                if (balance >= 40) {
+                    setMessage({ 
+                        type: 'error', 
+                        text: 'You cannot redeem gift code when your balance is ₹40 or more' 
+                    });
+                    return;
+                }
+
                 // Check if 24 hours have passed since last redemption
                 if (lastRedeemTime) {
                     const lastRedeem = new Date(lastRedeemTime);
@@ -2340,8 +2345,6 @@
             const [authenticated, setAuthenticated] = React.useState(false);
             const [currentPage, setCurrentPage] = React.useState('login');
             const [showInstallMessage, setShowInstallMessage] = React.useState(false);
-            const [balance, setBalance] = React.useState(0);
-            const [bonusBalance, setBonusBalance] = React.useState(0);
 
             // Handle PWA installation
             React.useEffect(() => {
@@ -2367,6 +2370,7 @@
 
             const [historyInitialTab, setHistoryInitialTab] = React.useState('game');
             const [currentUser, setCurrentUser] = React.useState(null);
+            const [balance, setBalance] = React.useState(0);
             const [gameHistory, setGameHistory] = React.useState([]);
             const [depositHistory, setDepositHistory] = React.useState([]);
             const [withdrawHistory, setWithdrawHistory] = React.useState([]);
