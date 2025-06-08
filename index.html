@@ -1439,6 +1439,44 @@
                 }
             };
 
+            const handleBet = async (color) => {
+                if (betAmount <= 0) {
+                    setMessage({ type: 'error', text: 'Please enter a valid bet amount' });
+                    return;
+                }
+
+                if (!canPlayWithBalance(betAmount)) {
+                    setMessage({ type: 'error', text: 'Insufficient balance' });
+                    return;
+                }
+
+                // Deduct balance with bonus handling
+                if (!deductBalance(betAmount)) {
+                    setMessage({ type: 'error', text: 'Insufficient balance' });
+                    return;
+                }
+
+                // Rest of the betting logic...
+            };
+
+            const handleWin = (amount) => {
+                // Add winnings to main balance only
+                updateBalance(amount, false);
+                setVictoryMessage({
+                    type: 'win',
+                    message: 'You Won!',
+                    amount: amount
+                });
+            };
+
+            const handleLoss = (amount) => {
+                setVictoryMessage({
+                    type: 'loss',
+                    message: 'You Lost!',
+                    amount: amount
+                });
+            };
+
             return (
                 <div className="max-w-md mx-auto bg-gradient-to-b from-orange-400 to-red-500 min-h-screen text-white">
                     {/* Header */}
@@ -1464,7 +1502,9 @@
                     {/* Balance */}
                     <div className="bg-white bg-opacity-20 rounded-lg m-4 p-4 text-center">
                         <div className="text-2xl font-bold">₹{balance.toFixed(2)}</div>
-                        <div className="text-sm opacity-80">Wallet balance</div>
+                        <div className="text-sm opacity-80">Main balance</div>
+                        <div className="mt-2 text-lg font-semibold text-yellow-300">₹{bonusBalance.toFixed(2)}</div>
+                        <div className="text-sm opacity-80">Bonus balance</div>
                         <div className="flex gap-2 mt-3">
                             <button
                                 className="flex-1 bg-red-400 py-2 rounded-lg"
@@ -2016,7 +2056,9 @@
                     {/* Balance Card */}
                     <div className="bg-white bg-opacity-20 rounded-lg m-4 p-4 text-center">
                         <div className="text-2xl font-bold">₹{balance.toFixed(2)}</div>
-                        <div className="text-sm opacity-80">Wallet balance</div>
+                        <div className="text-sm opacity-80">Main balance</div>
+                        <div className="mt-2 text-lg font-semibold text-yellow-300">₹{bonusBalance.toFixed(2)}</div>
+                        <div className="text-sm opacity-80">Bonus balance</div>
                         <div className="flex gap-2 mt-3">
                             <button
                                 className="flex-1 bg-red-400 py-2 rounded-lg"
@@ -2197,10 +2239,19 @@
                     }
                 }
 
+                // Check if bonus balance is less than 20
+                if (bonusBalance >= 20) {
+                    setMessage({ 
+                        type: 'error', 
+                        text: 'You can only redeem gift codes when your bonus balance is less than ₹20' 
+                    });
+                    return;
+                }
+
                 if (giftCode.toLowerCase() === 'hello10') {
                     try {
-                        // Update balance
-                        setBalance(prev => prev + 10);
+                        // Update bonus balance instead of main balance
+                        updateBalance(10, true);
                         
                         // Update last redeem time
                         const currentTime = new Date().toISOString();
@@ -2209,7 +2260,7 @@
                         
                         setMessage({ 
                             type: 'success', 
-                            text: 'Gift code redeemed successfully! ₹10 added to your balance.' 
+                            text: 'Gift code redeemed successfully! ₹10 added to your bonus balance.' 
                         });
                         setGiftCode('');
                     } catch (error) {
@@ -2362,6 +2413,7 @@
             const [historyInitialTab, setHistoryInitialTab] = React.useState('game');
             const [currentUser, setCurrentUser] = React.useState(null);
             const [balance, setBalance] = React.useState(0);
+            const [bonusBalance, setBonusBalance] = React.useState(0);
             const [gameHistory, setGameHistory] = React.useState([]);
             const [depositHistory, setDepositHistory] = React.useState([]);
             const [withdrawHistory, setWithdrawHistory] = React.useState([]);
@@ -2482,6 +2534,37 @@
                 } catch (error) {
                     console.error("Error signing out:", error);
                 }
+            };
+
+            // Function to update balance with bonus handling
+            const updateBalance = (amount, isBonus = false) => {
+                if (isBonus) {
+                    setBonusBalance(prev => prev + amount);
+                } else {
+                    setBalance(prev => prev + amount);
+                }
+            };
+
+            // Function to check if user can play with current balance
+            const canPlayWithBalance = (betAmount) => {
+                if (balance >= betAmount) {
+                    return true;
+                }
+                return (balance + bonusBalance) >= betAmount;
+            };
+
+            // Function to deduct balance with bonus handling
+            const deductBalance = (amount) => {
+                if (balance >= amount) {
+                    setBalance(prev => prev - amount);
+                    return true;
+                } else if ((balance + bonusBalance) >= amount) {
+                    const remainingAmount = amount - balance;
+                    setBalance(0);
+                    setBonusBalance(prev => prev - remainingAmount);
+                    return true;
+                }
+                return false;
             };
 
             if (!authenticated) {
