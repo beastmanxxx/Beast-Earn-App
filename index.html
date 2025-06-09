@@ -1452,22 +1452,18 @@
                 }
 
                 try {
-                    // First try to use main wallet balance
-                    if (betAmount <= balance) {
-                        await db.collection('users').doc(currentUser.uid).update({
-                            balance: balance - betAmount
-                        });
-                        setBalance(balance - betAmount);
-                    } else {
-                        // If main wallet is insufficient, use bonus balance
-                        const remainingAmount = betAmount - balance;
-                        await db.collection('users').doc(currentUser.uid).update({
-                            balance: 0,
-                            bonusBalance: bonusBalance - remainingAmount
-                        });
-                        setBalance(0);
-                        setBonusBalance(bonusBalance - remainingAmount);
-                    }
+                    let amountFromMain = Math.min(balance, betAmount);
+                    let amountFromBonus = betAmount - amountFromMain;
+
+                    // Update both balances in database
+                    await db.collection('users').doc(currentUser.uid).update({
+                        balance: balance - amountFromMain,
+                        bonusBalance: bonusBalance - amountFromBonus
+                    });
+
+                    // Update local state
+                    setBalance(balance - amountFromMain);
+                    setBonusBalance(bonusBalance - amountFromBonus);
 
                     // Rest of the betting logic...
                 } catch (error) {
