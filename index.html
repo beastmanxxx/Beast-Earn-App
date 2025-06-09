@@ -2222,33 +2222,20 @@
                 }
 
                 try {
-                    const giftCodeRef = db.collection('giftCodes').doc(giftCode.trim());
-                    const giftCodeDoc = await giftCodeRef.get();
+                    if (giftCode.trim().toLowerCase() === 'hey10') {
+                        // Update bonus balance
+                        const newBonusBalance = bonusBalance + 10;
+                        await db.collection('users').doc(currentUser.uid).update({
+                            bonusBalance: newBonusBalance,
+                            lastGiftCodeRedeemTime: new Date()
+                        });
 
-                    if (!giftCodeDoc.exists) {
+                        setBonusBalance(newBonusBalance);
+                        setGiftCode('');
+                        setMessage({ type: 'success', text: 'Successfully redeemed ₹10 bonus balance!' });
+                    } else {
                         setMessage({ type: 'error', text: 'Invalid gift code' });
-                        return;
                     }
-
-                    const giftCodeData = giftCodeDoc.data();
-                    if (giftCodeData.used) {
-                        setMessage({ type: 'error', text: 'This gift code has already been used' });
-                        return;
-                    }
-
-                    // Update bonus balance
-                    const newBonusBalance = bonusBalance + giftCodeData.amount;
-                    await db.collection('users').doc(currentUser.uid).update({
-                        bonusBalance: newBonusBalance,
-                        lastGiftCodeRedeemTime: new Date()
-                    });
-
-                    // Mark gift code as used
-                    await giftCodeRef.update({ used: true });
-
-                    setBonusBalance(newBonusBalance);
-                    setGiftCode('');
-                    setMessage({ type: 'success', text: `Successfully redeemed ₹${giftCodeData.amount} bonus balance!` });
                 } catch (error) {
                     setMessage({ type: 'error', text: 'Failed to redeem gift code' });
                 }
