@@ -1445,7 +1445,7 @@
                     return;
                 }
 
-                // Check if user has enough balance in either wallet or bonus
+                // Check if user has enough total balance
                 if (betAmount > balance + bonusBalance) {
                     setMessage({ type: 'error', text: 'Insufficient balance' });
                     return;
@@ -1743,7 +1743,7 @@
         };
 
         // --- Mines Game Component ---
-        const MinesGame = ({ balance, setBalance, bonusBalance, setBonusBalance, navigateTo }) => {
+        const MinesGame = ({ balance, setBalance, bonusBalance, setBonusBalance, navigateTo, currentUser }) => {
             const [betAmount, setBetAmount] = React.useState(10);
             const [customBetAmount, setCustomBetAmount] = React.useState('');
             const [grid, setGrid] = React.useState([]);
@@ -2534,6 +2534,19 @@
                 }
             };
 
+            // Load user data when component mounts
+            React.useEffect(() => {
+                if (currentUser) {
+                    db.collection('users').doc(currentUser.uid).get().then((doc) => {
+                        if (doc.exists) {
+                            const userData = doc.data();
+                            setBalance(userData.balance || 0);
+                            setBonusBalance(userData.bonusBalance || 0);
+                        }
+                    });
+                }
+            }, [currentUser]);
+
             if (!authenticated) {
                 if (currentPage === 'login') {
                     return <LoginPage setAuthenticated={setAuthenticated} navigateToRegister={() => navigateTo('register')} />;
@@ -2578,7 +2591,14 @@
                 case 'history':
                     return <HistoryPage navigateTo={navigateTo} gameHistory={gameHistory} depositHistory={depositHistory} withdrawHistory={withdrawHistory} initialTab={historyInitialTab} />;
                 case 'mines':
-                    return <MinesGame balance={balance} setBalance={setBalance} bonusBalance={bonusBalance} setBonusBalance={setBonusBalance} navigateTo={navigateTo} />;
+                    return <MinesGame 
+                                balance={balance} 
+                                setBalance={setBalance} 
+                                bonusBalance={bonusBalance} 
+                                setBonusBalance={setBonusBalance} 
+                                navigateTo={navigateTo}
+                                currentUser={currentUser}
+                            />;
                 case 'profile':
                     return <ProfilePage 
                         navigateTo={navigateTo} 
