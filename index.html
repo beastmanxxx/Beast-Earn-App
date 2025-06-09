@@ -1242,7 +1242,7 @@
         };
 
 
-        const ColorPredictionGame = ({ balance, setBalance, navigateTo, gameHistory, setGameHistory, addDepositToHistory, addWithdrawToHistory, currentUser, updateUserData }) => {
+        const ColorPredictionGame = ({ balance, setBalance, navigateTo, gameHistory, setGameHistory, addDepositToHistory, addWithdrawToHistory, currentUser, updateUserData, bonusBalance, setBonusBalance }) => {
             const [currentPeriod, setCurrentPeriod] = React.useState(1); // Default to 1
             const [timeLeft, setTimeLeft] = React.useState(0);
             const [gameState, setGameState] = React.useState('betting');
@@ -1439,6 +1439,41 @@
                 }
             };
 
+            const handleWin = async (amount) => {
+                const winAmount = amount * multiplier;
+                // If using bonus balance, add winnings to main wallet
+                if (betAmount <= bonusBalance) {
+                    await db.collection('users').doc(currentUser.uid).update({
+                        balance: balance + winAmount,
+                        bonusBalance: bonusBalance - betAmount
+                    });
+                    setBalance(balance + winAmount);
+                    setBonusBalance(bonusBalance - betAmount);
+                } else {
+                    await db.collection('users').doc(currentUser.uid).update({
+                        balance: balance + winAmount - betAmount
+                    });
+                    setBalance(balance + winAmount - betAmount);
+                }
+                // ... rest of the win handling code ...
+            };
+
+            const handleLoss = async () => {
+                // If using bonus balance, deduct from bonus balance
+                if (betAmount <= bonusBalance) {
+                    await db.collection('users').doc(currentUser.uid).update({
+                        bonusBalance: bonusBalance - betAmount
+                    });
+                    setBonusBalance(bonusBalance - betAmount);
+                } else {
+                    await db.collection('users').doc(currentUser.uid).update({
+                        balance: balance - betAmount
+                    });
+                    setBalance(balance - betAmount);
+                }
+                // ... rest of the loss handling code ...
+            };
+
             return (
                 <div className="max-w-md mx-auto bg-gradient-to-b from-orange-400 to-red-500 min-h-screen text-white">
                     {/* Header */}
@@ -1469,7 +1504,7 @@
                                 <div className="text-sm opacity-80">Wallet balance</div>
                             </div>
                             <div className="flex-1">
-                                <div className="text-2xl font-bold">₹0.00</div>
+                                <div className="text-2xl font-bold">₹{bonusBalance.toFixed(2)}</div>
                                 <div className="text-sm opacity-80">Bonus balance</div>
                             </div>
                         </div>
@@ -1987,15 +2022,14 @@
 
 
         // --- Game Selection Page ---
-        const GameSelectionPage = ({ balance, navigateTo, handleLogout }) => {
+        const GameSelectionPage = ({ balance, bonusBalance, navigateTo, handleLogout }) => {
             const [showMessage, setShowMessage] = React.useState(false);
             const [messageText, setMessageText] = React.useState('');
 
             const handleGameClick = (gameType) => {
-                if (balance < 1) {
-                    setMessageText(`Your balance is ₹${balance.toFixed(2)}. Keep at least ₹1 in your balance to enter in game.`);
+                if (balance < 1 && bonusBalance < 1) {
+                    setMessageText(`Your balance is ₹${balance.toFixed(2)} and bonus balance is ₹${bonusBalance.toFixed(2)}. Keep at least ₹1 in either balance to enter in game.`);
                     setShowMessage(true);
-                    // Hide message after 3 seconds
                     setTimeout(() => setShowMessage(false), 3000);
                 } else {
                     navigateTo(gameType);
@@ -2029,7 +2063,7 @@
                                 <div className="text-sm opacity-80">Wallet balance</div>
                             </div>
                             <div className="flex-1">
-                                <div className="text-2xl font-bold">₹0.00</div>
+                                <div className="text-2xl font-bold">₹{bonusBalance.toFixed(2)}</div>
                                 <div className="text-sm opacity-80">Bonus balance</div>
                             </div>
                         </div>
@@ -2155,7 +2189,7 @@
         };
 
         // Profile Page Component
-        const ProfilePage = ({ navigateTo, currentUser, updateUserData, setBalance }) => {
+        const ProfilePage = ({ navigateTo, currentUser, updateUserData, setBalance, bonusBalance, setBonusBalance }) => {
             const [userName, setUserName] = React.useState('');
             const [isEditing, setIsEditing] = React.useState(false);
             const [message, setMessage] = React.useState(null);
@@ -2170,69 +2204,53 @@
                             const userData = doc.data();
                             setUserName(userData.userName || '');
                             setLastRedeemTime(userData.lastGiftCodeRedeemTime || null);
+                            setBonusBalance(userData.bonusBalance || 0);
                         }
                     });
                 }
             }, [currentUser]);
 
-            const handleSaveName = async () => {
-                if (userName.trim().length < 3) {
-                    setMessage({ type: 'error', text: 'Name must be at least 3 characters long' });
+            const handleGiftCodeRedeem = async () => {
+                if (bonusBalance >= 1) {
+                    setMessage({ type: 'error', text: 'You can only redeem gift code when bonus balance is less than ₹1' });
                     return;
                 }
 
-                try {
-                    await updateUserData({ userName });
-                    setIsEditing(false);
-                    setMessage({ type: 'success', text: 'Profile updated successfully!' });
-                    setTimeout(() => setMessage(null), 3000);
-                } catch (error) {
-                    setMessage({ type: 'error', text: 'Failed to update profile' });
-                }
-            };
-
-            const handleRedeemGiftCode = async () => {
                 if (!giftCode.trim()) {
                     setMessage({ type: 'error', text: 'Please enter a gift code' });
                     return;
                 }
 
-                // Check if 24 hours have passed since last redemption
-                if (lastRedeemTime) {
-                    const lastRedeem = new Date(lastRedeemTime);
-                    const now = new Date();
-                    const hoursDiff = (now - lastRedeem) / (1000 * 60 * 60);
-                    
-                    if (hoursDiff < 24) {
-                        const remainingHours = Math.ceil(24 - hoursDiff);
-                        setMessage({ 
-                            type: 'error', 
-                            text: `You can redeem a gift code again in ${remainingHours} hours` 
-                        });
+                try {
+                    const giftCodeRef = db.collection('giftCodes').doc(giftCode.trim());
+                    const giftCodeDoc = await giftCodeRef.get();
+
+                    if (!giftCodeDoc.exists) {
+                        setMessage({ type: 'error', text: 'Invalid gift code' });
                         return;
                     }
-                }
 
-                if (giftCode.toLowerCase() === 'foryou10') {
-                    try {
-                        // Update balance
-                        setBalance(prev => prev + 10);
-                        
-                        // Update last redeem time
-                        const currentTime = new Date().toISOString();
-                        await updateUserData({ lastGiftCodeRedeemTime: currentTime });
-                        setLastRedeemTime(currentTime);
-                        
-                        setMessage({ 
-                            type: 'success', 
-                            text: 'Gift code redeemed successfully! ₹10 added to your balance.' 
-                        });
-                        setGiftCode('');
-                    } catch (error) {
-                        setMessage({ type: 'error', text: 'Failed to redeem gift code' });
+                    const giftCodeData = giftCodeDoc.data();
+                    if (giftCodeData.used) {
+                        setMessage({ type: 'error', text: 'This gift code has already been used' });
+                        return;
                     }
-                } else {
-                    setMessage({ type: 'error', text: 'Invalid gift code' });
+
+                    // Update bonus balance
+                    const newBonusBalance = bonusBalance + giftCodeData.amount;
+                    await db.collection('users').doc(currentUser.uid).update({
+                        bonusBalance: newBonusBalance,
+                        lastGiftCodeRedeemTime: new Date()
+                    });
+
+                    // Mark gift code as used
+                    await giftCodeRef.update({ used: true });
+
+                    setBonusBalance(newBonusBalance);
+                    setGiftCode('');
+                    setMessage({ type: 'success', text: `Successfully redeemed ₹${giftCodeData.amount} bonus balance!` });
+                } catch (error) {
+                    setMessage({ type: 'error', text: 'Failed to redeem gift code' });
                 }
             };
 
@@ -2305,7 +2323,7 @@
                                         placeholder="Enter gift code"
                                     />
                                     <button
-                                        onClick={handleRedeemGiftCode}
+                                        onClick={handleGiftCodeRedeem}
                                         className="px-4 py-2 bg-yellow-400 text-red-800 rounded-lg font-bold hover:bg-yellow-500 transition-colors"
                                     >
                                         Redeem
@@ -2352,6 +2370,8 @@
             const [authenticated, setAuthenticated] = React.useState(false);
             const [currentPage, setCurrentPage] = React.useState('login');
             const [showInstallMessage, setShowInstallMessage] = React.useState(false);
+            const [balance, setBalance] = React.useState(0);
+            const [bonusBalance, setBonusBalance] = React.useState(0);
 
             // Handle PWA installation
             React.useEffect(() => {
@@ -2377,7 +2397,6 @@
 
             const [historyInitialTab, setHistoryInitialTab] = React.useState('game');
             const [currentUser, setCurrentUser] = React.useState(null);
-            const [balance, setBalance] = React.useState(0);
             const [gameHistory, setGameHistory] = React.useState([]);
             const [depositHistory, setDepositHistory] = React.useState([]);
             const [withdrawHistory, setWithdrawHistory] = React.useState([]);
@@ -2511,7 +2530,7 @@
             // Rest of your existing switch statement for rendering different pages
             switch (currentPage) {
                 case 'gameSelection':
-                    return <GameSelectionPage balance={balance} navigateTo={navigateTo} handleLogout={handleLogout} />;
+                    return <GameSelectionPage balance={balance} bonusBalance={bonusBalance} navigateTo={navigateTo} handleLogout={handleLogout} />;
                 case 'colorPrediction':
                     return <ColorPredictionGame
                                 balance={balance}
@@ -2523,6 +2542,8 @@
                                 addWithdrawToHistory={addWithdrawToHistory}
                                 currentUser={currentUser}
                                 updateUserData={updateUserData}
+                                bonusBalance={bonusBalance}
+                                setBonusBalance={setBonusBalance}
                             />;
                 case 'deposit':
                     return <DepositPage 
@@ -2549,9 +2570,11 @@
                         currentUser={currentUser}
                         updateUserData={updateUserData}
                         setBalance={setBalance}
+                        bonusBalance={bonusBalance}
+                        setBonusBalance={setBonusBalance}
                     />;
                 default:
-                    return <GameSelectionPage balance={balance} navigateTo={navigateTo} handleLogout={handleLogout} />;
+                    return <GameSelectionPage balance={balance} bonusBalance={bonusBalance} navigateTo={navigateTo} handleLogout={handleLogout} />;
             }
         };
 
