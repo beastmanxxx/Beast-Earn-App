@@ -1242,7 +1242,7 @@
         };
 
 
-        const ColorPredictionGame = ({ balance, setBalance, navigateTo, gameHistory, setGameHistory, addDepositToHistory, addWithdrawToHistory, currentUser, updateUserData, bonusBalance, setBonusBalance }) => {
+        const ColorPredictionGame = ({ balance, setBalance, bonusBalance, setBonusBalance, navigateTo, gameHistory, setGameHistory, addDepositToHistory, addWithdrawToHistory, currentUser, updateUserData }) => {
             const [currentPeriod, setCurrentPeriod] = React.useState(1); // Default to 1
             const [timeLeft, setTimeLeft] = React.useState(0);
             const [gameState, setGameState] = React.useState('betting');
@@ -1439,38 +1439,54 @@
                 }
             };
 
+            const handleBet = async () => {
+                if (betAmount <= 0) {
+                    setMessage({ type: 'error', text: 'Please enter a valid bet amount' });
+                    return;
+                }
+
+                // Check if user has enough balance in either wallet or bonus
+                if (betAmount > balance + bonusBalance) {
+                    setMessage({ type: 'error', text: 'Insufficient balance' });
+                    return;
+                }
+
+                try {
+                    // First try to use main wallet balance
+                    if (betAmount <= balance) {
+                        await db.collection('users').doc(currentUser.uid).update({
+                            balance: balance - betAmount
+                        });
+                        setBalance(balance - betAmount);
+                    } else {
+                        // If main wallet is insufficient, use bonus balance
+                        const remainingAmount = betAmount - balance;
+                        await db.collection('users').doc(currentUser.uid).update({
+                            balance: 0,
+                            bonusBalance: bonusBalance - remainingAmount
+                        });
+                        setBalance(0);
+                        setBonusBalance(bonusBalance - remainingAmount);
+                    }
+
+                    // Rest of the betting logic...
+                } catch (error) {
+                    setMessage({ type: 'error', text: 'Failed to place bet' });
+                }
+            };
+
             const handleWin = async (amount) => {
                 const winAmount = amount * multiplier;
-                // If using bonus balance, add winnings to main wallet
-                if (betAmount <= bonusBalance) {
-                    await db.collection('users').doc(currentUser.uid).update({
-                        balance: balance + winAmount,
-                        bonusBalance: bonusBalance - betAmount
-                    });
-                    setBalance(balance + winAmount);
-                    setBonusBalance(bonusBalance - betAmount);
-                } else {
-                    await db.collection('users').doc(currentUser.uid).update({
-                        balance: balance + winAmount - betAmount
-                    });
-                    setBalance(balance + winAmount - betAmount);
-                }
+                // Add winnings to main wallet
+                await db.collection('users').doc(currentUser.uid).update({
+                    balance: balance + winAmount
+                });
+                setBalance(balance + winAmount);
                 // ... rest of the win handling code ...
             };
 
             const handleLoss = async () => {
-                // If using bonus balance, deduct from bonus balance
-                if (betAmount <= bonusBalance) {
-                    await db.collection('users').doc(currentUser.uid).update({
-                        bonusBalance: bonusBalance - betAmount
-                    });
-                    setBonusBalance(bonusBalance - betAmount);
-                } else {
-                    await db.collection('users').doc(currentUser.uid).update({
-                        balance: balance - betAmount
-                    });
-                    setBalance(balance - betAmount);
-                }
+                // Loss is already handled in handleBet
                 // ... rest of the loss handling code ...
             };
 
@@ -1727,7 +1743,7 @@
         };
 
         // --- Mines Game Component ---
-        const MinesGame = ({ balance, setBalance, navigateTo }) => {
+        const MinesGame = ({ balance, setBalance, bonusBalance, setBonusBalance, navigateTo }) => {
             const [betAmount, setBetAmount] = React.useState(10);
             const [customBetAmount, setCustomBetAmount] = React.useState('');
             const [grid, setGrid] = React.useState([]);
@@ -1906,10 +1922,18 @@
                         </div>
                     </div>
 
-                    {/* Wallet Balance Display - Styled like Aviator */}
+                    {/* Wallet Balance Display */}
                     <div className="bg-white bg-opacity-20 rounded-lg p-4 text-center mb-4">
-                        <div className="text-2xl font-bold">₹{balance.toFixed(2)}</div>
-                        <div className="text-sm opacity-80">Wallet balance</div>
+                        <div className="flex justify-between items-center mb-3">
+                            <div className="flex-1">
+                                <div className="text-2xl font-bold">₹{balance.toFixed(2)}</div>
+                                <div className="text-sm opacity-80">Wallet balance</div>
+                            </div>
+                            <div className="flex-1">
+                                <div className="text-2xl font-bold">₹{bonusBalance.toFixed(2)}</div>
+                                <div className="text-sm opacity-80">Bonus balance</div>
+                            </div>
+                        </div>
                         <div className="flex gap-2 mt-3">
                             <button
                                 className="flex-1 bg-red-400 py-2 rounded-lg"
@@ -2229,6 +2253,10 @@
                             bonusBalance: newBonusBalance,
                             lastGiftCodeRedeemTime: new Date()
                         });
+
+                        // Play success sound
+                        const audio = new Audio('dw.mp3');
+                        audio.play();
 
                         setBonusBalance(newBonusBalance);
                         setGiftCode('');
@@ -2550,7 +2578,7 @@
                 case 'history':
                     return <HistoryPage navigateTo={navigateTo} gameHistory={gameHistory} depositHistory={depositHistory} withdrawHistory={withdrawHistory} initialTab={historyInitialTab} />;
                 case 'mines':
-                    return <MinesGame balance={balance} setBalance={setBalance} navigateTo={navigateTo} />;
+                    return <MinesGame balance={balance} setBalance={setBalance} bonusBalance={bonusBalance} setBonusBalance={setBonusBalance} navigateTo={navigateTo} />;
                 case 'profile':
                     return <ProfilePage 
                         navigateTo={navigateTo} 
