@@ -571,10 +571,10 @@
                         body: JSON.stringify({
                             contents: [{
                                 parts: [{
-                                    text: "Please analyze this payment screenshot and extract the following information in JSON format: payment amount and UPI ID (8979873681@mbk). Only respond with the JSON data in this format: {\"payment_amount\": number, \"upi_id\": string}. Make sure to verify if the UPI ID matches exactly with 8979873681@mbk."
+                                    text: "Analyze this payment screenshot and verify if it shows a successful payment to UPI ID 8979873681@mbk. Extract the payment amount. Respond in JSON format: {\"payment_amount\": number, \"is_successful\": boolean, \"upi_id_matches\": boolean}. Check for words like 'successful', 'completed', 'paid', 'done' to determine if payment was successful."
                                 }, {
                                     inline_data: {
-                                        mime_type: "image/png",
+                                        mime_type: "image/*",
                                         data: imageData
                                     }
                                 }]
@@ -624,8 +624,13 @@
                         throw new Error(`Payment amount mismatch. Found ₹${verifiedAmount} in screenshot but you selected ₹${userAmount}. Please ensure you're uploading the correct payment confirmation.`);
                     }
 
-                    // Verify UPI ID
-                    if (paymentInfo.upi_id !== "8979873681@mbk") {
+                    // Verify payment was successful
+                    if (!paymentInfo.is_successful) {
+                        throw new Error('Payment status not confirmed as successful. Please ensure the payment was completed successfully.');
+                    }
+
+                    // Verify UPI ID matches
+                    if (!paymentInfo.upi_id_matches) {
                         throw new Error('Invalid UPI ID. Please ensure the payment was made to 8979873681@mbk.');
                     }
 
@@ -795,7 +800,7 @@
                         <input
                             id="payment-screenshot"
                             type="file"
-                            accept="image/png"
+                            accept="image/*"
                             onChange={handleFileChange}
                             className="w-full text-sm text-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-yellow-400 file:text-red-800 hover:file:bg-yellow-500 mb-4"
                         />
