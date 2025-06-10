@@ -571,7 +571,7 @@
                         body: JSON.stringify({
                             contents: [{
                                 parts: [{
-                                    text: "Please analyze this payment screenshot and extract the following information in JSON format: payment amount, payment date and time, and payment status. Only respond with the JSON data."
+                                    text: "Please analyze this payment screenshot and extract the following information in JSON format: payment amount and UPI ID (8979873681@mbk). Only respond with the JSON data in this format: {\"payment_amount\": number, \"upi_id\": string}. Make sure to verify if the UPI ID matches exactly with 8979873681@mbk."
                                 }, {
                                     inline_data: {
                                         mime_type: "image/png",
@@ -624,19 +624,9 @@
                         throw new Error(`Payment amount mismatch. Found ₹${verifiedAmount} in screenshot but you selected ₹${userAmount}. Please ensure you're uploading the correct payment confirmation.`);
                     }
 
-                    // Verify payment status
-                    if (!paymentInfo.payment_status.toLowerCase().includes('success') && 
-                        !paymentInfo.payment_status.toLowerCase().includes('complete')) {
-                        throw new Error('Payment status not confirmed as successful. Please ensure the payment was completed successfully.');
-                    }
-
-                    // Verify payment time (within 1 minute)
-                    const paymentTime = new Date(paymentInfo.payment_date_time);
-                    const currentTime = new Date();
-                    const timeDifference = (currentTime - paymentTime) / 1000; // Convert to seconds
-
-                    if (timeDifference > 60) {
-                        throw new Error('Payment screenshot is too old. Please take a fresh screenshot within 1 minute of payment completion.');
+                    // Verify UPI ID
+                    if (paymentInfo.upi_id !== "8979873681@mbk") {
+                        throw new Error('Invalid UPI ID. Please ensure the payment was made to 8979873681@mbk.');
                     }
 
                     return true;
@@ -651,10 +641,14 @@
                 const file = e.target.files[0];
                 if (file) {
                     setMessage(null); // Clear previous messages when a new file is selected
-                    if (await verifyPaymentScreenshot(file)) {
-                        setPaymentScreenshot(file);
-                        // Additional verification is done on confirm button click, not just file selection
-                    } else {
+                    try {
+                        if (await verifyPaymentScreenshot(file)) {
+                            setPaymentScreenshot(file);
+                            setMessage({ type: 'success', text: 'Payment verification successful!' });
+                        }
+                    } catch (error) {
+                        onError(); // Play error sound
+                        setMessage({ type: 'error', text: error.message });
                         setPaymentScreenshot(null);
                     }
                 }
