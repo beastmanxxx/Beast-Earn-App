@@ -553,8 +553,48 @@
             const upiId = "8979873681@mbk";
             const upiQrCodeUrl = "qr.png";
 
+            // Add Gemini AI API key
+            const GEMINI_API_KEY = "AIzaSyD1cPM-gAucFExP2xz1JUvRSUlZsCjSfAU";
+
             const depositAmounts = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
             const MIN_DEPOSIT_AMOUNT = 10;
+
+            // Function to verify payment using Gemini AI
+            const verifyPaymentWithGemini = async (imageData) => {
+                try {
+                    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-vision:generateContent', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${GEMINI_API_KEY}`
+                        },
+                        body: JSON.stringify({
+                            contents: [{
+                                parts: [{
+                                    text: "Please analyze this payment screenshot and extract the following information in JSON format: payment amount, payment date and time, and payment status. Only respond with the JSON data."
+                                }, {
+                                    inline_data: {
+                                        mime_type: "image/png",
+                                        data: imageData
+                                    }
+                                }]
+                            }]
+                        })
+                    });
+
+                    const data = await response.json();
+                    if (!data.candidates || !data.candidates[0].content.parts[0].text) {
+                        throw new Error('Failed to analyze payment screenshot');
+                    }
+
+                    // Parse the response text as JSON
+                    const paymentInfo = JSON.parse(data.candidates[0].content.parts[0].text);
+                    return paymentInfo;
+                } catch (error) {
+                    console.error('Gemini AI verification error:', error);
+                    throw new Error('Failed to verify payment details. Please ensure the screenshot is clear and contains payment information.');
+                }
+            };
 
             // Function to verify payment screenshot
             const verifyPaymentScreenshot = async (file) => {
@@ -565,191 +605,38 @@
                         throw new Error('Screenshot size should be less than 5MB. Please compress the image if needed.');
                     }
 
-                    // Create a canvas to process the image
-                    const img = new Image();
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
-
-                    // Load image and process it
-                    await new Promise((resolve, reject) => {
-                        img.onload = resolve;
-                        img.onerror = reject;
-                        img.src = URL.createObjectURL(file);
+                    // Convert file to base64
+                    const reader = new FileReader();
+                    const imageData = await new Promise((resolve, reject) => {
+                        reader.onload = () => resolve(reader.result.split(',')[1]);
+                        reader.onerror = reject;
+                        reader.readAsDataURL(file);
                     });
 
-                    // Check image dimensions (must be reasonable for a screenshot)
-                    if (img.width < 200 || img.height < 200 || img.width > 4000 || img.height > 4000) {
-                        throw new Error('Invalid screenshot dimensions. Please take a proper screenshot of your payment confirmation.');
-                    }
+                    // Verify payment details using Gemini AI
+                    const paymentInfo = await verifyPaymentWithGemini(imageData);
 
-                    // Set canvas size to match image
-                    canvas.width = img.width;
-                    canvas.height = img.height;
-
-                    // Draw image on canvas
-                    ctx.drawImage(img, 0, 0);
-
-                    // Check for screenshot indicators
-                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                    const hasScreenshotIndicators = checkScreenshotIndicators(imageData);
-                    if (!hasScreenshotIndicators) {
-                        throw new Error('This doesn\'t appear to be a valid screenshot. Please take a proper screenshot of your payment confirmation.');
-                    }
-
-                    // Enhance image for better OCR
-                    const enhancedData = enhanceImageForOCR(imageData);
-                    ctx.putImageData(enhancedData, 0, 0);
-
-                    // Use Tesseract with improved configuration
-                    const result = await Tesseract.recognize(
-                        canvas,
-                        'eng',
-                        {
-                            logger: m => console.log(m),
-                            tessedit_char_whitelist: '0123456789@.₹RsINRUPIabcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ',
-                            tessedit_pageseg_mode: '6', // Assume uniform text orientation
-                            tessjs_create_pdf: '0',
-                            tessjs_create_hocr: '0',
-                            tessjs_create_tsv: '0',
-                            tessjs_create_box: '0',
-                            tessjs_create_unlv: '0',
-                            tessjs_create_osd: '0'
-                        }
-                    );
-
-                    // Extract and normalize text
-                    const text = result.data.text.toLowerCase()
-                        .replace(/\s+/g, ' ')
-                        .replace(/[^\w\s@₹.]/g, '')
-                        .trim();
-
-                    console.log('Extracted text:', text); // For debugging
-
-                    // Verify UPI ID with multiple patterns and fuzzy matching
-                    const upiPatterns = [
-                        upiId.toLowerCase(),
-                        upiId.toLowerCase().replace('@', ' @'),
-                        upiId.toLowerCase().replace('@', ' @ '),
-                        upiId.toLowerCase().replace('@', ' @mbk'),
-                        'upi id: ' + upiId.toLowerCase(),
-                        'upi: ' + upiId.toLowerCase(),
-                        'paid to: ' + upiId.toLowerCase(),
-                        'beneficiary: ' + upiId.toLowerCase(),
-                        'upi id ' + upiId.toLowerCase(),
-                        'upi ' + upiId.toLowerCase(),
-                        'to ' + upiId.toLowerCase(),
-                        'recipient: ' + upiId.toLowerCase(),
-                        'receiver: ' + upiId.toLowerCase(),
-                        // Add more variations for common UPI apps
-                        'paytm: ' + upiId.toLowerCase(),
-                        'google pay: ' + upiId.toLowerCase(),
-                        'phonepe: ' + upiId.toLowerCase(),
-                        'amazon pay: ' + upiId.toLowerCase(),
-                        'bhim: ' + upiId.toLowerCase()
-                    ];
-
-                    const upiIdFound = upiPatterns.some(pattern => {
-                        const normalizedPattern = pattern.toLowerCase().replace(/\s+/g, '');
-                        const normalizedText = text.replace(/\s+/g, '');
-                        return normalizedText.includes(normalizedPattern);
-                    });
-
-                    if (!upiIdFound) {
-                        throw new Error('UPI ID verification failed. Please make sure the screenshot clearly shows payment to 8979873681@mbk. The UPI ID must be clearly visible in the payment confirmation.');
-                    }
-
-                    // Extract amount using multiple patterns with enhanced matching
-                    const amountPatterns = [
-                        /(?:rs\.?|inr|₹)\s*(\d+(?:\.\d{2})?)/i,
-                        /amount\s*:?\s*(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d{2})?)/i,
-                        /paid\s*:?\s*(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d{2})?)/i,
-                        /total\s*:?\s*(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d{2})?)/i,
-                        /debit\s*:?\s*(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d{2})?)/i,
-                        /sent\s*:?\s*(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d{2})?)/i,
-                        /transfer\s*:?\s*(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d{2})?)/i,
-                        // Add more patterns for different UPI apps
-                        /(?:paytm|google pay|phonepe|amazon pay|bhim)\s*(?:amount|paid|total)\s*:?\s*(?:rs\.?|inr|₹)?\s*(\d+(?:\.\d{2})?)/i
-                    ];
-
-                    let verifiedAmount = null;
-                    for (const pattern of amountPatterns) {
-                        const match = text.match(pattern);
-                        if (match) {
-                            verifiedAmount = parseFloat(match[1]);
-                            break;
-                        }
-                    }
-
-                    if (!verifiedAmount) {
-                        throw new Error('Could not verify payment amount in the screenshot. Please ensure the amount is clearly visible in the payment confirmation.');
-                    }
-
+                    // Verify amount matches
+                    const verifiedAmount = parseFloat(paymentInfo.payment_amount);
                     const userAmount = parseFloat(depositAmount);
 
-                    // Verify amount matches with tolerance
                     if (Math.abs(verifiedAmount - userAmount) > 0.01) {
-                        throw new Error(`Payment amount mismatch. Found ₹${verifiedAmount} in screenshot but you selected ₹${userAmount}. Please ensure you\'re uploading the correct payment confirmation.`);
+                        throw new Error(`Payment amount mismatch. Found ₹${verifiedAmount} in screenshot but you selected ₹${userAmount}. Please ensure you're uploading the correct payment confirmation.`);
                     }
 
-                    // Enhanced timestamp verification
+                    // Verify payment status
+                    if (!paymentInfo.payment_status.toLowerCase().includes('success') && 
+                        !paymentInfo.payment_status.toLowerCase().includes('complete')) {
+                        throw new Error('Payment status not confirmed as successful. Please ensure the payment was completed successfully.');
+                    }
+
+                    // Verify payment time (within 1 minute)
+                    const paymentTime = new Date(paymentInfo.payment_date_time);
                     const currentTime = new Date();
-                    const fileTime = new Date(file.lastModified);
-                    const timeDifference = (currentTime - fileTime) / 1000; // Convert to seconds
+                    const timeDifference = (currentTime - paymentTime) / 1000; // Convert to seconds
 
-                    // Check if screenshot is too old
                     if (timeDifference > 60) {
-                        throw new Error('Screenshot is too old. Please take a fresh screenshot within 1 minute of payment completion.');
-                    }
-
-                    // Check if screenshot is from future (indicating wrong device time)
-                    if (fileTime > currentTime) {
-                        throw new Error('Invalid screenshot timestamp. Please check your device time settings and try again.');
-                    }
-
-                    // Check if screenshot is from a different date
-                    if (fileTime.getDate() !== currentTime.getDate() || 
-                        fileTime.getMonth() !== currentTime.getMonth() || 
-                        fileTime.getFullYear() !== currentTime.getFullYear()) {
-                        throw new Error('Screenshot must be from today\'s date. Please take a fresh screenshot of your payment confirmation.');
-                    }
-
-                    // Additional verification for payment status with enhanced patterns
-                    const successPatterns = [
-                        'successful',
-                        'success',
-                        'paid',
-                        'completed',
-                        'transaction successful',
-                        'payment successful',
-                        'payment completed',
-                        'transaction completed',
-                        'money sent',
-                        'transfer successful',
-                        'transfer completed',
-                        // Add more patterns for different UPI apps
-                        'payment done',
-                        'payment processed',
-                        'transaction done',
-                        'transfer done',
-                        'sent successfully',
-                        'paid successfully',
-                        'completed successfully'
-                    ];
-
-                    const hasSuccessIndicator = successPatterns.some(pattern => text.includes(pattern));
-                    if (!hasSuccessIndicator) {
-                        throw new Error('Could not verify successful payment status in the screenshot. Please ensure the payment status (successful/completed) is clearly visible in the confirmation.');
-                    }
-
-                    // Check for transaction ID/UTR in the screenshot
-                    const transactionPatterns = [
-                        /(?:transaction|txn|utr|reference)(?:\s*(?:id|number|no|#))?\s*:?\s*([A-Za-z0-9]{8,})/i,
-                        /(?:upi|payment)(?:\s*(?:id|number|no|#))?\s*:?\s*([A-Za-z0-9]{8,})/i
-                    ];
-
-                    const hasTransactionId = transactionPatterns.some(pattern => text.match(pattern));
-                    if (!hasTransactionId) {
-                        throw new Error('Could not find transaction ID/UTR in the screenshot. Please ensure the transaction reference number is visible in the payment confirmation.');
+                        throw new Error('Payment screenshot is too old. Please take a fresh screenshot within 1 minute of payment completion.');
                     }
 
                     return true;
@@ -760,129 +647,11 @@
                 }
             };
 
-            // Function to check for screenshot indicators
-            const checkScreenshotIndicators = (imageData) => {
-                const data = imageData.data;
-                let hasStatusBar = false;
-                let hasTimeIndicator = false;
-                let hasBatteryIndicator = false;
-                let hasSignalIndicator = false;
-
-                // Check for common screenshot indicators
-                for (let i = 0; i < data.length; i += 4) {
-                    // Check for status bar (usually at the top of screenshots)
-                    if (i < imageData.width * 4 * 50) { // Check top 50 pixels
-                        const r = data[i];
-                        const g = data[i + 1];
-                        const b = data[i + 2];
-                        // Status bar usually has specific colors
-                        if (r === 0 && g === 0 && b === 0) {
-                            hasStatusBar = true;
-                        }
-                    }
-
-                    // Check for time indicator (usually in status bar)
-                    if (i < imageData.width * 4 * 30) { // Check top 30 pixels
-                        const r = data[i];
-                        const g = data[i + 1];
-                        const b = data[i + 2];
-                        // Time indicator usually has specific colors
-                        if (r === 255 && g === 255 && b === 255) {
-                            hasTimeIndicator = true;
-                        }
-                    }
-
-                    // Check for battery indicator
-                    if (i < imageData.width * 4 * 40) { // Check top 40 pixels
-                        const r = data[i];
-                        const g = data[i + 1];
-                        const b = data[i + 2];
-                        // Battery indicator usually has specific colors
-                        if (r === 0 && g === 255 && b === 0) {
-                            hasBatteryIndicator = true;
-                        }
-                    }
-
-                    // Check for signal indicator
-                    if (i < imageData.width * 4 * 40) { // Check top 40 pixels
-                        const r = data[i];
-                        const g = data[i + 1];
-                        const b = data[i + 2];
-                        // Signal indicator usually has specific colors
-                        if (r === 255 && g === 255 && b === 255) {
-                            hasSignalIndicator = true;
-                        }
-                    }
-                }
-
-                // Return true if at least two indicators are found
-                return (hasStatusBar && hasTimeIndicator) || (hasBatteryIndicator && hasSignalIndicator);
-            };
-
-            // Function to enhance image for better OCR
-            const enhanceImageForOCR = (imageData) => {
-                const data = imageData.data;
-                for (let i = 0; i < data.length; i += 4) {
-                    // Convert to grayscale
-                    const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
-                    
-                    // Increase contrast
-                    const threshold = 128;
-                    const newValue = avg > threshold ? 255 : 0;
-                    
-                    data[i] = newValue;     // R
-                    data[i + 1] = newValue; // G
-                    data[i + 2] = newValue; // B
-                }
-                return imageData;
-            };
-
-            // Function to check if the uploaded file is a valid screenshot
-            const isScreenshot = async (file) => {
-                // Check file type - only accept PNG
-                if (file.type !== 'image/png') {
-                    onError(); // Play error sound for invalid file type
-                    setMessage({ 
-                        type: 'error', 
-                        text: '⚠️ Only PNG screenshots are accepted.' 
-                    });
-                    return false;
-                }
-
-                // Check if screenshot is within 60 seconds
-                const currentTime = new Date();
-                const fileTime = new Date(file.lastModified);
-                const timeDifference = (currentTime - fileTime) / 1000; // Convert to seconds
-
-                if (timeDifference > 60) {
-                    onError();
-                    setMessage({
-                        type: 'error',
-                        text: '⚠️ Screenshot is too old. Please take a fresh screenshot within 60 seconds of payment completion.'
-                    });
-                    return false;
-                }
-
-                // Check if screenshot is from a different date
-                if (fileTime.getDate() !== currentTime.getDate() || 
-                    fileTime.getMonth() !== currentTime.getMonth() || 
-                    fileTime.getFullYear() !== currentTime.getFullYear()) {
-                    onError();
-                    setMessage({
-                        type: 'error',
-                        text: '⚠️ Screenshot must be from today\'s date.'
-                    });
-                    return false;
-                }
-
-                return true;
-            };
-
             const handleFileChange = async (e) => {
                 const file = e.target.files[0];
                 if (file) {
                     setMessage(null); // Clear previous messages when a new file is selected
-                    if (await isScreenshot(file)) {
+                    if (await verifyPaymentScreenshot(file)) {
                         setPaymentScreenshot(file);
                         // Additional verification is done on confirm button click, not just file selection
                     } else {
@@ -934,7 +703,7 @@
                     setMessage({ type: 'error', text: 'Please upload a valid payment screenshot.' });
                     return;
                 }
-                if (!isScreenshot(paymentScreenshot)) {
+                if (!verifyPaymentScreenshot(paymentScreenshot)) {
                     onError(); // Play error sound for invalid screenshot
                     setMessage({ type: 'error', text: 'Please upload a valid payment screenshot. Other image types are not accepted.' });
                     return;
