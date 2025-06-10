@@ -571,7 +571,7 @@
                         body: JSON.stringify({
                             contents: [{
                                 parts: [{
-                                    text: "Analyze this payment screenshot and verify if it shows a successful payment to UPI ID 8979873681@mbk. Extract the payment amount. Respond in JSON format: {\"payment_amount\": number, \"is_successful\": boolean, \"upi_id_matches\": boolean}. Check for words like 'successful', 'completed', 'paid', 'done' to determine if payment was successful."
+                                    text: "You are a payment verification expert. Analyze this payment screenshot carefully and extract the following information in JSON format: {\"payment_amount\": number, \"is_successful\": boolean, \"upi_id_matches\": boolean, \"transaction_id\": string}. Look for: 1) Payment amount (in numbers), 2) UPI ID 8979873681@mbk, 3) Transaction/UTR ID (any alphanumeric string that looks like a transaction reference), 4) Success indicators (words like 'successful', 'completed', 'paid', 'done', 'success'). Be thorough in your analysis and extract all visible information."
                                 }, {
                                     inline_data: {
                                         mime_type: "image/*",
@@ -634,6 +634,17 @@
                         throw new Error('Invalid UPI ID. Please ensure the payment was made to 8979873681@mbk.');
                     }
 
+                    // Verify UTR/Transaction ID if provided
+                    if (utrNumber && paymentInfo.transaction_id) {
+                        // Convert both to lowercase and remove spaces for comparison
+                        const screenshotUtr = paymentInfo.transaction_id.toLowerCase().replace(/\s+/g, '');
+                        const enteredUtr = utrNumber.toLowerCase().replace(/\s+/g, '');
+                        
+                        if (!screenshotUtr.includes(enteredUtr) && !enteredUtr.includes(screenshotUtr)) {
+                            throw new Error('UTR/Transaction ID mismatch. Please ensure you entered the correct UTR/Transaction ID from the payment confirmation.');
+                        }
+                    }
+
                     return true;
                 } catch (error) {
                     throw error;
@@ -683,45 +694,47 @@
                 }
             };
 
-            const handleManualConfirmation = () => {
+            const handleManualConfirmation = async () => {
                 const amount = parseFloat(depositAmount);
                 setMessage(null);
 
                 if (isNaN(amount) || amount < MIN_DEPOSIT_AMOUNT) {
-                    onError(); // Play error sound for invalid amount
+                    onError();
                     setMessage({ type: 'error', text: `Please select a valid amount (minimum ₹${MIN_DEPOSIT_AMOUNT}).` });
                     return;
                 }
                 if (!utrNumber || utrNumber.length < 12) {
-                    onError(); // Play error sound for invalid UTR
+                    onError();
                     setMessage({ type: 'error', text: 'Please enter a valid UTR/Transaction ID (min 12 characters).' });
                     return;
                 }
                 if (!paymentScreenshot) {
-                    onError(); // Play error sound for missing screenshot
+                    onError();
                     setMessage({ type: 'error', text: 'Please upload a valid payment screenshot.' });
                     return;
                 }
-                if (!verifyPaymentScreenshot(paymentScreenshot)) {
-                    onError(); // Play error sound for invalid screenshot
-                    setMessage({ type: 'error', text: 'Please upload a valid payment screenshot. Other image types are not accepted.' });
-                    return;
-                }
 
-                setBalance(prev => prev + amount);
-                addDepositToHistory({
-                    amount: amount,
-                    utr: utrNumber,
-                    timestamp: new Date().toISOString()
-                });
-                setMessage({ type: 'success', text: `₹${amount.toFixed(2)} added to your balance with UTR: ${utrNumber}!` });
-                setDepositAmount('');
-                setUtrNumber('');
-                setPaymentScreenshot(null);
-                setTimeout(() => {
-                    setMessage(null);
-                    navigateTo('gameSelection');
-                }, 2500);
+                try {
+                    if (await verifyPaymentScreenshot(paymentScreenshot)) {
+                        setBalance(prev => prev + amount);
+                        addDepositToHistory({
+                            amount: amount,
+                            utr: utrNumber,
+                            timestamp: new Date().toISOString()
+                        });
+                        setMessage({ type: 'success', text: `₹${amount.toFixed(2)} added to your balance with UTR: ${utrNumber}!` });
+                        setDepositAmount('');
+                        setUtrNumber('');
+                        setPaymentScreenshot(null);
+                        setTimeout(() => {
+                            setMessage(null);
+                            navigateTo('gameSelection');
+                        }, 2500);
+                    }
+                } catch (error) {
+                    onError();
+                    setMessage({ type: 'error', text: error.message });
+                }
             };
 
             return (
