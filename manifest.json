@@ -1,9 +1,9 @@
 {
-    "name": "Beast Earn",
-    "short_name": "Beast Earn",
+    "name": "Color Crush",
+    "short_name": "Color Crush",
     "description": "Play Color Prediction and Mine games to win real money!",
-    "start_url": "https://beastmanxxx.github.io/Beast-Earn-App/",
-    "scope": "https://beastmanxxx.github.io/Beast-Earn-App/",
+    "start_url": "https://beastmanxxx.github.io/Color-Crush/",
+    "scope": "https://beastmanxxx.github.io/Color-Crush/",
     "display": "standalone",
     "background_color": "#ef4444",
     "theme_color": "#ef4444",
