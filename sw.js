@@ -1,24 +1,24 @@
 const CACHE_NAME = 'beast-earn-v1';
 const urlsToCache = [
-    'https://beastmanxxx.github.io/Beast-Earn-App/',
-    'https://beastmanxxx.github.io/Beast-Earn-App/index.html',
-    'https://beastmanxxx.github.io/Beast-Earn-App/logo.avif',
-    'https://beastmanxxx.github.io/Beast-Earn-App/manifest.json',
-    'https://beastmanxxx.github.io/Beast-Earn-App/color.png',
-    'https://beastmanxxx.github.io/Beast-Earn-App/mine.png',
-    'https://beastmanxxx.github.io/Beast-Earn-App/coin.png',
-    'https://beastmanxxx.github.io/Beast-Earn-App/boom.png',
-    'https://beastmanxxx.github.io/Beast-Earn-App/qr.png',
-    'https://beastmanxxx.github.io/Beast-Earn-App/auth.mp3',
-    'https://beastmanxxx.github.io/Beast-Earn-App/color.mp3',
-    'https://beastmanxxx.github.io/Beast-Earn-App/mine.mp3',
-    'https://beastmanxxx.github.io/Beast-Earn-App/main.mp3',
-    'https://beastmanxxx.github.io/Beast-Earn-App/deposite.mp3',
-    'https://beastmanxxx.github.io/Beast-Earn-App/withdraw.mp3',
-    'https://beastmanxxx.github.io/Beast-Earn-App/history.mp3',
-    'https://beastmanxxx.github.io/Beast-Earn-App/dw.mp3',
-    'https://beastmanxxx.github.io/Beast-Earn-App/error.mp3',
-    'https://beastmanxxx.github.io/Beast-Earn-App/boom.mp3',
+    'https://beastmanxxx.github.io/Color-Crush/',
+    'https://beastmanxxx.github.io/Color-Crush/index.html',
+    'https://beastmanxxx.github.io/Color-Crush/logo.avif',
+    'https://beastmanxxx.github.io/Color-Crush/manifest.json',
+    'https://beastmanxxx.github.io/Color-Crush/color.png',
+    'https://beastmanxxx.github.io/Color-Crush/mine.png',
+    'https://beastmanxxx.github.io/Color-Crush/coin.png',
+    'https://beastmanxxx.github.io/Color-Crush/boom.png',
+    'https://beastmanxxx.github.io/Color-Crush/qr.png',
+    'https://beastmanxxx.github.io/Color-Crush/auth.mp3',
+    'https://beastmanxxx.github.io/Color-Crush/color.mp3',
+    'https://beastmanxxx.github.io/Color-Crush/mine.mp3',
+    'https://beastmanxxx.github.io/Color-Crush/main.mp3',
+    'https://beastmanxxx.github.io/Color-Crush/deposite.mp3',
+    'https://beastmanxxx.github.io/Color-Crush/withdraw.mp3',
+    'https://beastmanxxx.github.io/Color-Crush/history.mp3',
+    'https://beastmanxxx.github.io/Color-Crush/dw.mp3',
+    'https://beastmanxxx.github.io/Color-Crush/error.mp3',
+    'https://beastmanxxx.github.io/Color-Crush/boom.mp3',
     'https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js',
     'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js',
     'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js',
@@ -64,7 +64,7 @@ self.addEventListener('activate', event => {
 // Fetch event - serve from cache, fall back to network
 self.addEventListener('fetch', event => {
     // Skip cross-origin requests
-    if (!event.request.url.startsWith('https://beastmanxxx.github.io/Beast-Earn-App/') &&
+    if (!event.request.url.startsWith('https://beastmanxxx.github.io/Color-Crush/') &&
         !event.request.url.startsWith('https://www.gstatic.com/') &&
         !event.request.url.startsWith('https://unpkg.com/') &&
         !event.request.url.startsWith('https://cdn.tailwindcss.com')) {
@@ -102,7 +102,7 @@ self.addEventListener('fetch', event => {
                 ).catch(() => {
                     // If both cache and network fail, return a fallback response
                     if (event.request.url.endsWith('.html')) {
-                        return caches.match('https://beastmanxxx.github.io/Beast-Earn-App/index.html');
+                        return caches.match('https://beastmanxxx.github.io/Color-Crush/index.html');
                     }
                 });
             })
