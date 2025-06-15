@@ -1,21 +1,17 @@
 const express = require('express');
-const cors = require('cors');
 const path = require('path');
 const axios = require('axios');
-require('dotenv').config();
-
+const crypto = require('crypto');
 const app = express();
-const port = process.env.PORT || 5555;
 
 // Middleware
-app.use(cors());
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.static(path.join(__dirname)));
 
 // Payment Gateway Configuration
 const MERCHANT_ID = 'MLD9Q6DRVOP81749886703';
-const API_KEY = 'm4Eu0PjMm1j0j3swoJSSuZmux0kluUTJ';
+const API_KEY = 'sHlgnksLc0cpdFxURu2YC0wf3gzNJeTF';
 const API_URL = 'https://fastzix.in/api/v1/order';
 
 // Generate xverify signature
@@ -31,7 +27,7 @@ function generateXVerify(data, secretKey) {
         .map(([key, value]) => `${key}=${value}`)
         .join('|');
 
-    return require('crypto')
+    return crypto
         .createHmac('sha256', secretKey)
         .update(dataString)
         .digest('hex');
@@ -41,15 +37,16 @@ function generateXVerify(data, secretKey) {
 app.post('/payment-gateway/initiate', async (req, res) => {
     try {
         const { amount, userToken, phone } = req.body;
+        const orderId = 'ORD' + Date.now() + Math.floor(Math.random() * 100000000);
 
         const orderData = {
-            customer_mobile: phone || '9999999999', // Fallback phone number
+            customer_mobile: phone || '9999999999',
             merch_id: MERCHANT_ID,
             amount: amount,
-            order_id: 'ORD' + Date.now() + Math.floor(Math.random() * 100000000),
+            order_id: orderId,
             currency: 'INR',
             redirect_url: 'https://beastmanxxx.github.io/Color-Crush/payment-success',
-            udf1: 'CustomData1',
+            udf1: userToken || 'guest',
             udf2: 'CustomData2',
             udf3: 'CustomData3',
             udf4: 'CustomData4',
@@ -72,46 +69,46 @@ app.post('/payment-gateway/initiate', async (req, res) => {
                 orderId: response.data.result.orderId
             });
         } else {
-            res.status(400).json({
-                success: false,
-                message: 'Failed to initiate payment'
-            });
+            throw new Error('Failed to initiate payment');
         }
     } catch (error) {
-        console.error('Payment initiation error:', error);
+        console.error('Payment initiation error:', error.response?.data || error.message);
         res.status(500).json({
             success: false,
-            message: 'Internal server error'
+            message: 'Payment initiation failed. Please try again.'
         });
     }
 });
 
-// Serve the main HTML file
+// Serve main HTML file
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Payment Success Page
+// Payment success page
 app.get('/payment-success', (req, res) => {
     const orderId = req.query.order;
     if (!orderId) {
         return res.redirect('/');
     }
-    res.sendFile(path.join(__dirname, 'views/payment-success.html'));
+    res.sendFile(path.join(__dirname, 'views', 'payment-success.html'));
 });
 
-// Payment Failed Page
-app.get('/payment-failed', (req, res) => {
-    res.sendFile(path.join(__dirname, 'views/payment-failed.html'));
+// Payment failure page
+app.get('/payment-failure', (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'payment-failure.html'));
 });
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-    console.error(err.stack);
-    res.status(500).send('Something broke!');
+    console.error('Server error:', err);
+    res.status(500).json({
+        success: false,
+        message: 'Internal server error'
+    });
 });
 
-// Start server
-app.listen(port, () => {
-    console.log(`Server is running on port ${port}`);
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
 }); 
