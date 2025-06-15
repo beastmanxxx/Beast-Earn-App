@@ -565,17 +565,20 @@
 
 
         // --- Deposit Page Component ---
-        const DepositPage = ({ setBalance, navigateTo, addDepositToHistory, onError }) => {
+        function DepositSection() {
             const [selectedAmount, setSelectedAmount] = React.useState(null);
             const [isProcessing, setIsProcessing] = React.useState(false);
+            const [error, setError] = React.useState(null);
 
             const handleDeposit = async () => {
                 if (!selectedAmount) {
-                    alert('Please select an amount');
+                    setError('Please select an amount');
                     return;
                 }
 
                 setIsProcessing(true);
+                setError(null);
+
                 try {
                     const response = await fetch('/payment-gateway/initiate', {
                         method: 'POST',
@@ -584,21 +587,21 @@
                         },
                         body: JSON.stringify({
                             amount: selectedAmount,
-                            userToken: auth.currentUser?.uid,
-                            phone: auth.currentUser?.phoneNumber
+                            userToken: auth.currentUser?.uid || 'guest',
+                            phone: auth.currentUser?.phoneNumber || '9999999999'
                         })
                     });
 
                     const data = await response.json();
                     
-                    if (data.success) {
+                    if (data.success && data.paymentUrl) {
                         window.location.href = data.paymentUrl;
                     } else {
-                        alert('Payment initiation failed. Please try again.');
+                        setError(data.message || 'Payment initiation failed. Please try again.');
                     }
                 } catch (error) {
                     console.error('Payment error:', error);
-                    alert('An error occurred. Please try again.');
+                    setError('An error occurred. Please try again.');
                 } finally {
                     setIsProcessing(false);
                 }
@@ -611,7 +614,10 @@
                         {[100, 200, 500, 1000, 2000, 5000].map((amount) => (
                             <button
                                 key={amount}
-                                onClick={() => setSelectedAmount(amount)}
+                                onClick={() => {
+                                    setSelectedAmount(amount);
+                                    setError(null);
+                                }}
                                 className={`p-4 rounded-lg text-center transition-all ${
                                     selectedAmount === amount
                                         ? 'bg-yellow-500 text-black font-bold'
@@ -622,6 +628,11 @@
                             </button>
                         ))}
                     </div>
+                    {error && (
+                        <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+                            {error}
+                        </div>
+                    )}
                     <button
                         onClick={handleDeposit}
                         disabled={!selectedAmount || isProcessing}
@@ -645,7 +656,7 @@
                     </button>
                 </div>
             );
-        };
+        }
 
         // --- Withdraw Page Component ---
         const WithdrawPage = ({ balance, setBalance, navigateTo, addWithdrawToHistory, onError }) => {
@@ -2070,12 +2081,7 @@
                                 updateUserData={updateUserData}
                             />;
                 case 'deposit':
-                    return <DepositPage 
-                                setBalance={setBalance} 
-                                navigateTo={navigateTo} 
-                                addDepositToHistory={addDepositToHistory}
-                                onError={handleDepositError}
-                            />;
+                    return <DepositSection />;
                 case 'withdraw':
                     return <WithdrawPage 
                                 balance={balance} 
