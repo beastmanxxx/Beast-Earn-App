@@ -5,9 +5,9 @@ $user_token = $_POST['user'];
 
 // Database credentials 
 $host = 'localhost';
-$db_user = 'XXXXXXXXXXXXXXXX';
-$db_password = 'XXXXXXXXXXXXXXXX';
-$dbname = 'XXXXXXXXXXXXXXXX';
+$db_user = 'root';
+$db_password = '';
+$dbname = 'color_crush';
 
 // Create a connection to the remote database using MySQLi
 $mysqli = new mysqli($host, $db_user, $db_password, $dbname);
@@ -40,7 +40,7 @@ $data = [
     'amount' => $amount,
     'order_id' => 'ORD' . round(microtime(true) * 1000) . rand(11111111, 99999999),
     'currency' => 'INR',
-    'redirect_url' => 'https://example.com/wallet/rechargerecord',
+    'redirect_url' => 'http://localhost:5555/payment-gateway/callback.php',
     'udf1' => 'CustomData1',
     'udf2' => 'CustomData2',
     'udf3' => 'CustomData3',
