@@ -2,9 +2,9 @@
 
 // Database credentials 
 $host = 'localhost';
-$user = 'XXXXXXXXXXXXXXXX';
-$password = 'XXXXXXXXXXXXXXXX';
-$dbname = 'XXXXXXXXXXXXXXXX';
+$user = 'root';
+$password = '';
+$dbname = 'color_crush';
 
 // Create a connection to the remote database using MySQLi
 $mysqli = new mysqli($host, $user, $password, $dbname);
