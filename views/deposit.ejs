@@ -1,0 +1,119 @@
+<%- include('partials/header') %>
+
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="text-center mb-0">Deposit Money</h3>
+                </div>
+                <div class="card-body">
+                    <form id="depositForm">
+                        <input type="hidden" name="userToken" value="<%= user.token %>">
+                        <input type="hidden" name="phone" value="<%= user.phone %>">
+                        <div class="form-group mb-4">
+                            <label class="form-label">Select Amount (₹)</label>
+                            <div class="row g-3">
+                                <div class="col-6">
+                                    <div class="amount-option">
+                                        <input type="radio" class="btn-check" name="amount" id="amount100" value="100" required>
+                                        <label class="btn btn-outline-primary w-100" for="amount100">₹100</label>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="amount-option">
+                                        <input type="radio" class="btn-check" name="amount" id="amount200" value="200">
+                                        <label class="btn btn-outline-primary w-100" for="amount200">₹200</label>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="amount-option">
+                                        <input type="radio" class="btn-check" name="amount" id="amount500" value="500">
+                                        <label class="btn btn-outline-primary w-100" for="amount500">₹500</label>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="amount-option">
+                                        <input type="radio" class="btn-check" name="amount" id="amount1000" value="1000">
+                                        <label class="btn btn-outline-primary w-100" for="amount1000">₹1000</label>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="amount-option">
+                                        <input type="radio" class="btn-check" name="amount" id="amount2000" value="2000">
+                                        <label class="btn btn-outline-primary w-100" for="amount2000">₹2000</label>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="amount-option">
+                                        <input type="radio" class="btn-check" name="amount" id="amount5000" value="5000">
+                                        <label class="btn btn-outline-primary w-100" for="amount5000">₹5000</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-center">
+                            <button type="submit" class="btn btn-primary btn-lg px-5" id="payButton">
+                                <i class="fas fa-wallet me-2"></i>Proceed to Payment
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.amount-option .btn-check:checked + .btn-outline-primary {
+    background-color: #0d6efd;
+    color: white;
+}
+.amount-option .btn-outline-primary {
+    padding: 15px;
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+</style>
+
+<script>
+document.getElementById('depositForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const payButton = document.getElementById('payButton');
+    payButton.disabled = true;
+    payButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
+
+    try {
+        const formData = new FormData(this);
+        const response = await fetch('/payment-gateway/initiate', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                amount: formData.get('amount'),
+                userToken: formData.get('userToken'),
+                phone: formData.get('phone')
+            })
+        });
+
+        const data = await response.json();
+        
+        if (data.success) {
+            window.location.href = data.paymentUrl;
+        } else {
+            alert('Payment initiation failed. Please try again.');
+            payButton.disabled = false;
+            payButton.innerHTML = '<i class="fas fa-wallet me-2"></i>Proceed to Payment';
+        }
+    } catch (error) {
+        console.error('Payment error:', error);
+        alert('An error occurred. Please try again.');
+        payButton.disabled = false;
+        payButton.innerHTML = '<i class="fas fa-wallet me-2"></i>Proceed to Payment';
+    }
+});
+</script>
+
+<%- include('partials/footer') %> 
